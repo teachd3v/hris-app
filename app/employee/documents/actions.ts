@@ -48,7 +48,7 @@ export async function uploadDocument(formData: FormData) {
   const existingFilesJson = formData.get('existingFiles') as string
   const existingFiles = existingFilesJson ? JSON.parse(existingFilesJson) : []
 
-  let finalFiles = [...existingFiles]
+  const finalFiles = [...existingFiles]
 
   // 1. Upload new files to Storage
   for (const file of newFiles) {

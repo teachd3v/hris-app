@@ -1,36 +1,114 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TEACH Portal — HRIS App
 
-## Getting Started
+Sistem Informasi SDM internal untuk **TEACH GREAT Edunesia**. Dibangun di atas Next.js 16, Supabase, dan di-deploy ke Vercel.
 
-First, run the development server:
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router) + React 19 |
+| Database & Auth | Supabase (PostgreSQL + Google OAuth) |
+| Styling | Tailwind CSS v4 |
+| Deploy | Vercel (Singapore region) |
+| CI/CD | GitHub Actions |
+
+## Setup untuk Dev Baru
+
+### Prerequisites
+- Node.js 20+
+- [Supabase CLI](https://supabase.com/docs/guides/cli/getting-started)
+- Docker Desktop (untuk local Supabase)
+
+### 1. Clone & install
+
+```bash
+git clone https://github.com/teachd3v/hris-app.git
+cd hris-app
+npm install
+```
+
+### 2. Setup environment
+
+```bash
+cp .env.example .env.local
+```
+
+Isi nilai di `.env.local` — ambil dari Supabase Dashboard → Project Settings → API:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+### 3. Jalankan local Supabase
+
+```bash
+npm run db:start
+```
+
+Ini akan start Docker container Supabase lokal beserta migration & seed otomatis.
+
+### 4. Jalankan dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scripts
 
-## Learn More
+| Script | Deskripsi |
+|---|---|
+| `npm run dev` | Start dev server |
+| `npm run build` | Build production |
+| `npm run check` | Typecheck + lint (jalankan sebelum push) |
+| `npm run typecheck` | TypeScript check saja |
+| `npm run lint` | ESLint saja |
+| `npm run db:start` | Start local Supabase (Docker) |
+| `npm run db:stop` | Stop local Supabase |
+| `npm run db:reset` | Reset DB lokal + jalankan seed |
+| `npm run db:diff` | Diff schema lokal vs production |
+| `npm run db:push` | Push migrations ke production |
+| `npm run db:types` | Generate `types/database.ts` dari production schema |
+| `npm run db:types:local` | Generate types dari local Supabase |
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Workflow Development
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Membuat migration baru
 
-## Deploy on Vercel
+```bash
+# 1. Buat file migration
+supabase migration new nama_migration
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# 2. Tulis SQL di file yang terbuat di supabase/migrations/
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# 3. Test di lokal
+npm run db:reset
+
+# 4. Update TypeScript types
+npm run db:types:local
+
+# 5. Commit & push ke main → GitHub Actions otomatis push ke production
+git add supabase/migrations/ types/database.ts
+git commit -m "feat: ..."
+git push
+```
+
+### Pre-commit hook
+
+Setiap commit otomatis menjalankan `typecheck + lint`. Kalau gagal, commit dibatalkan — fix dulu sebelum commit.
+
+---
+
+## Deployment
+
+- **Production**: push ke `main` → Vercel auto-deploy + GitHub Actions push migrations
+- **Preview**: buat PR → Vercel auto-deploy preview URL
+- **Production URL**: [https://hris-app-gamma.vercel.app](https://hris-app-gamma.vercel.app)
+
+## Akses Admin
+
+Login Google hanya bisa dengan akun yang terdaftar. Role admin ditentukan oleh kolom `role = 'Admin'` di tabel `employees`.
