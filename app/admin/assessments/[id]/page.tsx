@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import { getAssessmentAnalysis } from "../actions";
 import { useEffect, useState, use } from "react";
 import { notFound, useRouter } from "next/navigation";
 import DashboardLayout from "@/components/common/DashboardLayout";
@@ -37,34 +38,25 @@ export default function AssessmentAnalysisPage({ params }: { params: Promise<{ i
   const [adminProfile, setAdminProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  const supabase = createClient();
   const router = useRouter();
 
   useEffect(() => {
     async function fetchData() {
+      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return router.push("/");
 
-      const [tRes, aRes, pRes, empRes] = await Promise.all([
-        supabase.from('assessment_templates').select('*').eq('id', id).single(),
-        supabase.from('employee_assessments')
-          .select('*, employees(id, name, email, dept, title, photo_url, employee_code)')
-          .eq('template_id', id),
+      const [pRes, analysisData] = await Promise.all([
         supabase.from('employees').select('name, photo_url').eq('id', user.id).maybeSingle(),
-        // Ambil semua karyawan sebagai ground truth total partisipan
-        supabase.from('employees')
-          .select('id, name, email, dept, title, photo_url, employee_code')
-          .order('name')
+        getAssessmentAnalysis(id),
       ]);
 
-      const allEmployees = empRes.data || [];
-      const existingAssessments = aRes.data || [];
+      const allEmployees = analysisData.employees;
+      const existingAssessments = analysisData.assessments;
 
-      // Merge: semua karyawan masuk, yang belum punya row → tampil sebagai "Belum Diisi"
       const mergedAssessments = allEmployees.map(emp => {
-        const existing = existingAssessments.find(a => a.employees?.id === emp.id || a.employee_id === emp.id);
+        const existing = existingAssessments.find((a: any) => a.employees?.id === emp.id || a.employee_id === emp.id);
         if (existing) return existing;
-        // Karyawan yang belum di-assign (belum punya row)
         return {
           id: `virtual-${emp.id}`,
           employee_id: emp.id,
@@ -73,17 +65,17 @@ export default function AssessmentAnalysisPage({ params }: { params: Promise<{ i
           employees: emp,
           answers: null,
           submitted_at: null,
-          _isVirtual: true, // tidak punya row di DB, tidak bisa diklik
+          _isVirtual: true,
         };
       });
 
-      setTemplate(tRes.data);
+      setTemplate(analysisData.template);
       setAssessments(mergedAssessments);
       setAdminProfile(pRes.data);
       setLoading(false);
     }
     fetchData();
-  }, [id, supabase, router]);
+  }, [id, router]);
 
   if (loading) return <div className="p-20 text-center font-bold text-ink-3 animate-pulse text-sm uppercase tracking-widest">Sinkronisasi Data Analisis...</div>;
   if (!template) notFound();

@@ -1,9 +1,7 @@
 import DashboardLayout from "@/components/common/DashboardLayout";
 import AdminDashboard from "@/components/admin/AdminDashboard";
-import { Employee } from "@/types/employee";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { redirect } from "next/navigation";
+import { requireAdmin } from "@/lib/auth-guard";
 
 const ADMIN_MENU = [
   {
@@ -27,22 +25,7 @@ const ADMIN_MENU = [
 ];
 
 export default async function AdminEmployeesPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/");
-  }
-
-  // Get current admin profile
-  const { data: profile } = await supabase
-    .from('employees')
-    .select('name, photo_url')
-    .eq('id', user.id)
-    .single();
-
-  // Gunakan admin client (service role) untuk fetch semua karyawan
-  // agar bypass RLS — admin berhak melihat semua data
+  const { user, profile } = await requireAdmin();
   const adminSupabase = createAdminClient();
   const { data: employeesData, error: employeesError } = await adminSupabase
     .from('employees')

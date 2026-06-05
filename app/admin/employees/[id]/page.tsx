@@ -1,6 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
+import { requireAdmin } from "@/lib/auth-guard";
 import DashboardLayout from "@/components/common/DashboardLayout";
 import Link from "next/link";
 import EmployeeProfileTabs from "@/components/admin/EmployeeProfileTabs";
@@ -31,19 +31,7 @@ const ADMIN_MENU = [
 
 export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) redirect("/");
-
-  // Get admin profile for header
-  const { data: adminProfile } = await supabase
-    .from('employees')
-    .select('name, photo_url')
-    .eq('id', user.id)
-    .single();
-
-  // Use ADMIN CLIENT (service role) to bypass RLS for viewing employee details
+  const { user, profile: adminProfile } = await requireAdmin();
   const adminSupabase = createAdminClient();
 
   // Fetch ALL employee data from all tables

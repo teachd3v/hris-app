@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import { getAssessmentResult } from "../../actions";
 import { useEffect, useState, use } from "react";
 import { notFound, useRouter } from "next/navigation";
 import DashboardLayout from "@/components/common/DashboardLayout";
@@ -41,7 +42,6 @@ export default function IndividualAssessmentPage({ params }: { params: Promise<{
   const [loading, setLoading] = useState(true);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   
-  const supabase = createClient();
   const router = useRouter();
 
   const handleDownloadPDF = async () => {
@@ -107,42 +107,24 @@ export default function IndividualAssessmentPage({ params }: { params: Promise<{
 
   useEffect(() => {
     async function fetchData() {
+      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return router.push("/");
 
-      // 1. Fetch Basic Assessment & Admin Profile
-      const [tRes, aRes, pRes] = await Promise.all([
-        supabase.from('assessment_templates').select('*').eq('id', id).single(),
-        supabase.from('employee_assessments').select('*, employees(*)').eq('id', resultId).single(),
-        supabase.from('employees').select('name, photo_url').eq('id', user.id).maybeSingle()
+      const [pRes, resultData] = await Promise.all([
+        supabase.from('employees').select('name, photo_url').eq('id', user.id).maybeSingle(),
+        getAssessmentResult(id, resultId),
       ]);
 
-      if (aRes.data) {
-        const empId = aRes.data.employee_id!;
-
-        // 2. Fetch Detailed Profile Data
-        const [promoRes, trainingRes, skillRes, achievementRes] = await Promise.all([
-          supabase.from('promotion_histories').select('*').eq('employee_id', empId).order('date', { ascending: false }),
-          supabase.from('trainings').select('*').eq('employee_id', empId).order('date', { ascending: false }),
-          supabase.from('skills').select('*').eq('employee_id', empId),
-          supabase.from('achievements').select('*').eq('employee_id', empId).order('date', { ascending: false }),
-        ]);
-
-        setProfileData({
-          promotions: promoRes.data || [],
-          trainings: trainingRes.data || [],
-          skills: skillRes.data || [],
-          achievements: achievementRes.data || [],
-        });
-      }
-
-      setTemplate(tRes.data);
-      setAssessment(aRes.data);
+      const { template, assessment, profileData } = resultData;
+      if (profileData) setProfileData(profileData);
+      setTemplate(template);
+      setAssessment(assessment);
       setAdminProfile(pRes.data);
       setLoading(false);
     }
     fetchData();
-  }, [id, resultId, supabase, router]);
+  }, [id, resultId, router]);
 
   if (loading) return <div className="p-20 text-center font-bold text-ink-3 animate-pulse text-sm uppercase tracking-widest">Memuat Analisis Mendalam...</div>;
   if (!assessment) notFound();

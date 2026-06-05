@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/auth-guard";
 import DashboardLayout from "@/components/common/DashboardLayout";
 import Link from "next/link";
 
@@ -25,33 +25,18 @@ const ADMIN_MENU = [
 ];
 
 export default async function AdminAssessmentsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user, profile: adminProfile } = await requireAdmin();
+  const adminSupabase = createAdminClient();
 
-  if (!user) redirect("/");
-
-  // Get admin profile
-  const { data: adminProfile } = await supabase
-    .from('employees')
-    .select('name, photo_url')
-    .eq('id', user.id)
-    .single();
-
-  // Fetch Assessment Templates
-  const { data: templates } = await supabase
-    .from('assessment_templates')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  // Fetch Stats (Summary from employee_assessments)
-  const { data: allAssessments } = await supabase
-    .from('employee_assessments')
-    .select('template_id, status');
-
-  // Fetch count of all employees (including admins)
-  const { count: empCount } = await supabase
-    .from('employees')
-    .select('*', { count: 'exact', head: true });
+  const [
+    { data: templates },
+    { data: allAssessments },
+    { count: empCount },
+  ] = await Promise.all([
+    adminSupabase.from('assessment_templates').select('*').order('created_at', { ascending: false }),
+    adminSupabase.from('employee_assessments').select('template_id, status'),
+    adminSupabase.from('employees').select('*', { count: 'exact', head: true }),
+  ]);
 
   const employeesCount = empCount || 0;
 
