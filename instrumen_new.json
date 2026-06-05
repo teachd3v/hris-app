@@ -1,0 +1,350 @@
+[
+  {
+    "id": "a1",
+    "section": "Bagian A. Pernyataan Komitmen",
+    "type": "scale",
+    "question": "Saya memahami visi, misi dan nilai YPUU.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "a2",
+    "section": "Bagian A. Pernyataan Komitmen",
+    "type": "scale",
+    "question": "Saya menunjukkan loyalitas terhadap lembaga.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "a3",
+    "section": "Bagian A. Pernyataan Komitmen",
+    "type": "scale",
+    "question": "Saya bersedia menjalankan kebijakan dan peraturan lembaga.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "a4",
+    "section": "Bagian A. Pernyataan Komitmen",
+    "type": "scale",
+    "question": "Saya menjaga nama baik lembaga di dalam dan luar lingkungan kerja.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "a5",
+    "section": "Bagian A. Pernyataan Komitmen",
+    "type": "scale",
+    "question": "Saya siap berkontribusi dalam jangka panjang.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b2",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Teridentifikasi (Identified)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena lingkungan pekerjaan ini yang saya pilih untuk mencapai gaya atau ritme hidup tertentu.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b3",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Eksternal (External)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena penghasilan/gaji yang saya terima untuk memenuhi kebutuhan hidup saya.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b4",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Amotivasi (Amotivation)",
+    "type": "scale",
+    "question": "Saya sering mempertanyakan hal ini pada diri sendiri; saya merasa tidak mampu menyelesaikan tugas-tugas penting di lembaga ini.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b5",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Motivasi Intrinsik (Intrinsic)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena saya merasa sangat senang saat belajar hal-hal baru dalam mengelola dan mengembangkan program/pekerjaan.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b6",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Terintegrasi (Integrated)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena pekerjaan atau pengabdian ini telah menjadi bagian yang tidak terpisahkan dari jati diri saya.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b7",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Introjeksi (Introjected)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena saya ingin berhasil menjalankan amanah ini; jika gagal, saya akan merasa sangat malu pada diri sendiri.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b8",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Teridentifikasi (Identified)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena saya memilih jalur pekerjaan ini untuk mencapai tujuan karir profesional saya.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b9",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Motivasi Intrinsik (Intrinsic)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena kepuasan batin yang saya rasakan saat menghadapi tantangan-tantangan menarik di dunia pendidikan.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b10",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Eksternal (External)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena pekerjaan ini memungkinkan saya mendapatkan uang/penghasilan.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b11",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Terintegrasi (Integrated)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena berada di jalan ini adalah bagian dari prinsip hidup yang telah saya pilih.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b12",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Introjeksi (Introjected)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena saya ingin memberikan kinerja terbaik di lembaga ini; jika tidak, saya akan merasa sangat kecewa pada diri sendiri.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b13",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Amotivasi (Amotivation)",
+    "type": "scale",
+    "question": "Saya tidak tahu pasti alasannya; kadang kondisi dan tuntutan kerja di lapangan terasa tidak realistis.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b14",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Introjeksi (Introjected)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena saya ingin menjadi seseorang yang \"sukses\" dan dipandang baik atau berprestasi dalam hidup.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b15",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Teridentifikasi (Identified)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena ini adalah jalan yang saya pilih untuk mewujudkan tujuan-tujuan besar yang penting bagi saya",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b16",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Motivasi Intrinsik (Intrinsic)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena kepuasan yang saya rasakan ketika berhasil menuntaskan target atau tugas yang sulit.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b17",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Eksternal (External)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena bekerja di lembaga ini memberikan saya rasa aman (baik secara finansial maupun status).",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b18",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Amotivasi (Amotivation)",
+    "type": "scale",
+    "question": "Saya tidak tahu pasti; kadang saya merasa terlalu banyak yang diharapkan dari kami sebagai staf/tim.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b19",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Terintegrasi (Integrated)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena pekerjaan ini sudah menjadi bagian dari nafas dan kehidupan saya sehari-hari.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b20",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Motivasi Intrinsik (Intrinsic)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena saya sungguh menikmati setiap proses saat merancang atau menjalankan inisiatif pekerjaan di sini.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b21",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Terintegrasi (Integrated)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena misi lembaga ini telah sepenuhnya menyatu dengan panggilan jiwa dan nilai inti kehidupan saya.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b22",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Teridentifikasi (Identified)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena peran ini sangat esensial untuk memperluas kapasitas dan pengalaman profesional saya secara pribadi.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b23",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Introjeksi (Introjected)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena saya akan merasa bersalah dan tidak enak pada rekan kerja atau pimpinan jika saya terlihat kurang berdedikasi.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b24",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Regulasi Eksternal (External)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Karena saya mengandalkan tunjangan atau fasilitas dari pekerjaan ini untuk mendukung kehidupan saya.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "b25",
+    "section": "Bagian B. Dorongan Dalam Bekerja",
+    "dimension": "Amotivasi (Amotivation)",
+    "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+    "type": "scale",
+    "question": "Saya sering merasa hampa dan mempertanyakan apakah tenaga yang saya keluarkan di sini benar-benar membawa dampak nyata.",
+    "minLabel": "Sangat Tidak Sesuai",
+    "maxLabel": "Sepenuhnya Sesuai",
+    "maxScore": 7
+  },
+  {
+    "id": "c1",
+    "section": "Bagian C. Refleksi & Umpan Balik",
+    "type": "textarea",
+    "question": "Apa yang sudah berjalan baik di TEACH?",
+    "placeholder": "Ketik di sini..."
+  },
+  {
+    "id": "c2",
+    "section": "Bagian C. Refleksi & Umpan Balik",
+    "type": "textarea",
+    "question": "Apa yang perlu diperbaiki?",
+    "placeholder": "Ketik di sini..."
+  },
+  {
+    "id": "c3",
+    "section": "Bagian C. Refleksi & Umpan Balik",
+    "type": "textarea",
+    "question": "Pelatihan atau pengembangan apa yang Anda butuhkan?",
+    "placeholder": "Ketik di sini..."
+  },
+  {
+    "id": "c4",
+    "section": "Bagian C. Refleksi & Umpan Balik",
+    "type": "textarea",
+    "question": "Jika Anda ditunjuk sebagai pimpinan, apa yang akan Anda perbaiki?",
+    "placeholder": "Ketik di sini..."
+  },
+  {
+    "id": "c5",
+    "section": "Bagian C. Refleksi & Umpan Balik",
+    "type": "textarea",
+    "question": "Proses apa yang menurutmu tidak efektif?",
+    "placeholder": "Ketik di sini..."
+  },
+  {
+    "id": "c6",
+    "section": "Bagian C. Refleksi & Umpan Balik",
+    "type": "textarea",
+    "question": "Ide atau saran untuk meningkatkan kinerja tim/organisasi?",
+    "placeholder": "Ketik di sini..."
+  }
+]

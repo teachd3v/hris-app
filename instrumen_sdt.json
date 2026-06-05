@@ -1,0 +1,276 @@
+{
+  "form_id": "evaluasi_sdt_komitmen_feedback_teach_v1",
+  "title": "Instrumen Evaluasi SDT, Komitmen, & Umpan Balik Insan TEACH",
+  "instructions": "Instrumen ini dirancang untuk memahami pengalaman, motivasi, dan komitmen Anda di lembaga. Silakan berikan penilaian pada Bagian A, B, dan C menggunakan skala yang disediakan. Pada Bagian D, berikan masukan dan refleksi Anda secara terbuka. Tidak ada jawaban yang salah, semua data akan digunakan untuk pengembangan bersama.",
+  "scale_definition": {
+    "min": 1,
+    "max": 7,
+    "labels": {
+      "1": "Sangat Tidak Sesuai",
+      "2": "Tidak Sesuai",
+      "3": "Kurang Sesuai",
+      "4": "Cukup Sesuai",
+      "5": "Sesuai",
+      "6": "Sangat Sesuai",
+      "7": "Sepenuhnya Sesuai"
+    }
+  },
+  "sections": [
+    {
+      "section_id": "step_1_pengalaman_kerja",
+      "title": "BAGIAN A: PENGALAMAN KERJA DI LEMBAGA",
+      "description": "Bagian ini untuk memahami bagaimana lingkungan dan sistem kerja mendukung Anda sehari-hari.",
+      "items": [
+        {
+          "id": "q1",
+          "type": "scale",
+          "dimension": "autonomy",
+          "text": "Saya diberikan ruang dan kebebasan untuk menentukan cara terbaik dalam menyelesaikan tugas-tugas saya."
+        },
+        {
+          "id": "q2",
+          "type": "scale",
+          "dimension": "autonomy",
+          "text": "Pimpinan dan sistem kerja di sini mendengarkan masukan serta menghargai inisiatif yang saya buat."
+        },
+        {
+          "id": "q3",
+          "type": "scale",
+          "dimension": "autonomy",
+          "text": "Saya merasa memiliki keleluasaan untuk mengambil keputusan terkait pekerjaan saya tanpa harus selalu diarahkan."
+        },
+        {
+          "id": "q4",
+          "type": "scale",
+          "dimension": "competence",
+          "text": "Saya merasa memiliki kemampuan dan keahlian yang memadai untuk menjalankan peran saya saat ini."
+        },
+        {
+          "id": "q5",
+          "type": "scale",
+          "dimension": "competence",
+          "text": "Saya difasilitasi dengan baik untuk terus belajar, berkembang, dan mengatasi tantangan kerja yang ada."
+        },
+        {
+          "id": "q6",
+          "type": "scale",
+          "dimension": "competence",
+          "text": "Saya merasa berhasil dan efektif ketika menyelesaikan berbagai tuntutan pekerjaan di lembaga ini."
+        },
+        {
+          "id": "q7",
+          "type": "scale",
+          "dimension": "relatedness",
+          "text": "Saya merasa diterima, dihargai, dan menjadi bagian penting dari tim di lembaga ini."
+        },
+        {
+          "id": "q8",
+          "type": "scale",
+          "dimension": "relatedness",
+          "text": "Saya memiliki hubungan yang baik, saling percaya, dan suportif dengan rekan kerja maupun pimpinan."
+        },
+        {
+          "id": "q9",
+          "type": "scale",
+          "dimension": "relatedness",
+          "text": "Saya merasa peduli dan memiliki ikatan kebersamaan yang kuat dengan orang-orang di lingkungan kerja saya."
+        }
+      ]
+    },
+    {
+      "section_id": "step_2_dorongan_kerja",
+      "title": "BAGIAN B: DORONGAN DALAM BEKERJA",
+      "description": "Secara umum, saya termotivasi menjalankan pekerjaan dan inisiatif di lembaga ini...",
+      "items": [
+        {
+          "id": "q10",
+          "type": "scale",
+          "dimension": "amotivation",
+          "text": "...karena saya kurang tahu pasti tujuannya; kadang saya merasa tuntutan kerja di sini terlalu membebani."
+        },
+        {
+          "id": "q11",
+          "type": "scale",
+          "dimension": "amotivation",
+          "text": "...karena saya merasa tidak ada alasan yang cukup kuat mengapa saya harus tetap bertahan dan bekerja di sini."
+        },
+        {
+          "id": "q12",
+          "type": "scale",
+          "dimension": "amotivation",
+          "text": "...karena saya sering bertanya-tanya apakah pekerjaan yang saya lakukan di lembaga ini ada gunanya atau tidak."
+        },
+        {
+          "id": "q13",
+          "type": "scale",
+          "dimension": "external",
+          "text": "...karena pekerjaan ini memberikan jaminan stabilitas finansial dan status sosial bagi saya."
+        },
+        {
+          "id": "q14",
+          "type": "scale",
+          "dimension": "external",
+          "text": "...karena saya sepenuhnya membutuhkan penghasilan dan fasilitas dari lembaga ini untuk memenuhi kebutuhan hidup."
+        },
+        {
+          "id": "q15",
+          "type": "scale",
+          "dimension": "external",
+          "text": "...karena saya ingin menghindari teguran atau penilaian yang buruk dari atasan/pimpinan."
+        },
+        {
+          "id": "q16",
+          "type": "scale",
+          "dimension": "introjected",
+          "text": "...karena saya ingin dipandang sebagai individu yang sukses dan berprestasi oleh lingkungan sekitar."
+        },
+        {
+          "id": "q17",
+          "type": "scale",
+          "dimension": "introjected",
+          "text": "...karena saya akan merasa sangat kecewa pada diri sendiri jika tidak menunjukkan kinerja yang prima."
+        },
+        {
+          "id": "q18",
+          "type": "scale",
+          "dimension": "introjected",
+          "text": "...karena saya merasa tidak enak hati dan bersalah kepada pimpinan atau rekan tim jika terlihat kurang berdedikasi."
+        },
+        {
+          "id": "q19",
+          "type": "scale",
+          "dimension": "identified",
+          "text": "...karena peran ini sejalan dengan tujuan pribadi saya untuk memberikan dampak nyata pada masyarakat/pendidikan."
+        },
+        {
+          "id": "q20",
+          "type": "scale",
+          "dimension": "identified",
+          "text": "...karena saya menyadari bahwa peran ini penting untuk memperluas kapasitas dan pengalaman profesional saya."
+        },
+        {
+          "id": "q21",
+          "type": "scale",
+          "dimension": "identified",
+          "text": "...karena saya menyadari bahwa inisiatif dan pekerjaan yang saya lakukan memberikan dampak positif yang bermakna."
+        },
+        {
+          "id": "q22",
+          "type": "scale",
+          "dimension": "integrated",
+          "text": "...karena misi lembaga ini telah sepenuhnya selaras dengan nilai-nilai inti dan panggilan jiwa saya."
+        },
+        {
+          "id": "q23",
+          "type": "scale",
+          "dimension": "integrated",
+          "text": "...karena pekerjaan ini telah menyatu dengan identitas dan prinsip hidup saya sehari-hari."
+        },
+        {
+          "id": "q24",
+          "type": "scale",
+          "dimension": "integrated",
+          "text": "...karena bekerja dan berkontribusi di bidang ini adalah bagian dari siapa diri saya sebenarnya."
+        },
+        {
+          "id": "q25",
+          "type": "scale",
+          "dimension": "intrinsic",
+          "text": "...karena ada kepuasan batin tersendiri saat saya berhasil menuntaskan tugas atau target yang menantang."
+        },
+        {
+          "id": "q26",
+          "type": "scale",
+          "dimension": "intrinsic",
+          "text": "...karena saya benar-benar menikmati proses saat merancang dan menjalankan setiap inisiatif pekerjaan di sini."
+        },
+        {
+          "id": "q27",
+          "type": "scale",
+          "dimension": "intrinsic",
+          "text": "...karena pekerjaan ini sendiri sangat menarik, merangsang rasa ingin tahu, dan menyenangkan bagi saya."
+        }
+      ]
+    },
+    {
+      "section_id": "step_3_komitmen",
+      "title": "BAGIAN C: PERNYATAAN KOMITMEN",
+      "description": "Bagian ini mengukur pemahaman, loyalitas, dan kesiapan Anda dalam berkontribusi bagi lembaga.",
+      "items": [
+        {
+          "id": "q28",
+          "type": "scale",
+          "dimension": "pemahaman_nilai",
+          "text": "Saya memahami visi, misi dan nilai YPUU."
+        },
+        {
+          "id": "q29",
+          "type": "scale",
+          "dimension": "loyalitas",
+          "text": "Saya menunjukkan loyalitas terhadap lembaga."
+        },
+        {
+          "id": "q30",
+          "type": "scale",
+          "dimension": "kepatuhan",
+          "text": "Saya bersedia menjalankan kebijakan dan peraturan lembaga."
+        },
+        {
+          "id": "q31",
+          "type": "scale",
+          "dimension": "integritas",
+          "text": "Saya menjaga nama baik lembaga di dalam dan luar lingkungan kerja."
+        },
+        {
+          "id": "q32",
+          "type": "scale",
+          "dimension": "retensi",
+          "text": "Saya siap berkontribusi dalam jangka panjang."
+        }
+      ]
+    },
+    {
+      "section_id": "step_4_kualitatif",
+      "title": "BAGIAN D: REFLEKSI & UMPAN BALIK",
+      "description": "Bagian ini merupakan ruang bagi Anda untuk merefleksikan komitmen serta menyampaikan pandangan konstruktif untuk pengembangan lembaga.",
+      "items": [
+        {
+          "id": "q33",
+          "type": "textarea",
+          "dimension": "refleksi_komitmen",
+          "text": "Apa yang sudah berjalan baik di TEACH?"
+        },
+        {
+          "id": "q34",
+          "type": "textarea",
+          "dimension": "area_perbaikan",
+          "text": "Apa yang perlu diperbaiki?"
+        },
+        {
+          "id": "q35",
+          "type": "textarea",
+          "dimension": "kebutuhan_pengembangan",
+          "text": "Pelatihan atau pengembangan apa yang Anda butuhkan?"
+        },
+        {
+          "id": "q36",
+          "type": "textarea",
+          "dimension": "perspektif_kepemimpinan",
+          "text": "Jika Anda ditunjuk sebagai pimpinan, apa yang akan Anda perbaiki?"
+        },
+        {
+          "id": "q37",
+          "type": "textarea",
+          "dimension": "efektivitas_proses",
+          "text": "Proses apa yang menurutmu tidak efektif?"
+        },
+        {
+          "id": "q38",
+          "type": "textarea",
+          "dimension": "ide_inovasi",
+          "text": "Ide atau saran untuk meningkatkan kinerja tim/organisasi?"
+        }
+      ]
+    }
+  ]
+}
