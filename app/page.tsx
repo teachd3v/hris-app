@@ -1,4 +1,4 @@
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Tag } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -74,9 +74,15 @@ export default async function Home() {
             </p>
           </div>
 
-          <div className="mt-16 flex items-center gap-4 py-3 px-5 bg-[var(--surface-item)] w-fit rounded-2xl border border-[var(--line)]">
-            <ShieldCheck size={18} className="text-[var(--red)]" />
-            <span className="text-[10px] font-black text-ink-3 uppercase tracking-[0.2em]">Verified Internal Access Only</span>
+          <div className="mt-16 flex items-stretch gap-3">
+            <div className="flex items-center gap-4 py-3 px-5 bg-[var(--surface-item)] w-fit rounded-2xl border border-[var(--line)]">
+              <ShieldCheck size={18} className="text-[var(--red)]" />
+              <span className="text-[10px] font-black text-ink-3 uppercase tracking-[0.2em]">Verified Internal Access Only</span>
+            </div>
+            <div className="flex items-center gap-4 px-5 bg-[var(--surface-item)] w-fit rounded-2xl border border-[var(--line)]">
+              <Tag size={18} className="text-[var(--red)]" />
+              <span className="text-[10px] font-black text-ink-3 uppercase tracking-[0.2em]">v1.0.0</span>
+            </div>
           </div>
         </div>
 
