@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Bell } from "lucide-react";
 import Link from "next/link";
 import DashboardLayout from "@/components/common/DashboardLayout";
@@ -57,6 +58,12 @@ export default function GridDashboardClient({
     clockOutLng?: number;
   };
 }) {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const currentDate = new Date().toLocaleDateString("id-ID", {
     weekday: "long",
     day: "numeric",
@@ -161,7 +168,7 @@ export default function GridDashboardClient({
           <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-5 border border-[var(--line)]">
             <div className="flex items-center gap-2 mb-4 text-[var(--ink)]">
               <span className="text-lg">📅</span>
-              <span className="font-bold text-[14px]">{currentDate}</span>
+              <span className="font-bold text-[14px]">{mounted ? currentDate : "Memuat tanggal..."}</span>
             </div>
             
             <div className="flex justify-between items-center gap-4">

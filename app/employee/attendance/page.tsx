@@ -440,7 +440,7 @@ export default function AttendancePage() {
             <div className="p-5 bg-gradient-to-br from-[var(--bg)] to-white rounded-2xl border border-[var(--line)] shadow-sm flex flex-col items-center">
               <span className="text-[11px] font-bold tracking-widest text-[var(--green)] uppercase">WAKTU MASUK</span>
               <span className="text-[36px] font-black text-[var(--ink)] mt-1 tracking-tight">
-                {formatTimeStr(attendanceToday?.clock_in || new Date().toISOString())}
+                {formatTimeStr(attendanceToday?.clock_in)}
               </span>
               
               {attendanceToday?.clock_in_photo_url && (
