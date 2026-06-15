@@ -132,7 +132,12 @@ export default function AttendancePage() {
     } catch (err: any) {
       console.error("Error accessing camera:", err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.message?.includes('denied')) {
-        setCameraError("Izin kamera ditolak oleh browser/perangkat. Silakan klik ikon gembok di sebelah URL situs pada bilah alamat browser Anda, lalu aktifkan izin kamera untuk situs ini secara manual.");
+        const isStandalone = typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone);
+        if (isStandalone) {
+          setCameraError("Izin kamera ditolak. Karena Anda membuka aplikasi via PWA (tanpa address bar), silakan aktifkan izin kamera secara manual melalui Pengaturan Aplikasi HP Anda (Pengaturan > Aplikasi > [Nama App HRIS] > Izin/Permissions > Kamera > Izinkan).");
+        } else {
+          setCameraError("Izin kamera ditolak oleh browser. Silakan klik ikon gembok di sebelah URL situs pada bilah alamat browser Anda, lalu aktifkan izin kamera untuk situs ini secara manual.");
+        }
       } else {
         setCameraError(err.message || "Kamera tidak dapat diakses. Pastikan izin kamera telah diberikan.");
       }
