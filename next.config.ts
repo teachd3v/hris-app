@@ -8,7 +8,8 @@ const withPWA = withPWAInit({
   skipWaiting: true,
 } as any);
 
-const nextConfig: NextConfig = {
+const nextConfig: any = {
+  turbopack: {},
   allowedDevOrigins: ['192.168.0.56'],
   images: {
     remotePatterns: [
