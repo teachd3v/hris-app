@@ -121,9 +121,21 @@ export default function AttendancePage() {
       if (activeStreamRef.current) {
         activeStreamRef.current.getTracks().forEach(track => track.stop());
       }
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'user' } 
-      });
+      
+      let stream: MediaStream;
+      try {
+        // Try getting user-facing camera first (ideal for mobile selfies)
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'user' } 
+        });
+      } catch (firstErr) {
+        console.warn("Failed with facingMode constraint, retrying with generic video constraint...", firstErr);
+        // Fallback to any available camera (works on desktops and basic webcams)
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true 
+        });
+      }
+
       activeStreamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -138,6 +150,8 @@ export default function AttendancePage() {
         } else {
           setCameraError("Izin kamera ditolak oleh browser. Silakan klik ikon gembok di sebelah URL situs pada bilah alamat browser Anda, lalu aktifkan izin kamera untuk situs ini secara manual.");
         }
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setCameraError("Kamera fisik tidak ditemukan pada perangkat Anda. Pastikan webcam terpasang dan terdeteksi oleh sistem.");
       } else {
         setCameraError(err.message || "Kamera tidak dapat diakses. Pastikan izin kamera telah diberikan.");
       }
