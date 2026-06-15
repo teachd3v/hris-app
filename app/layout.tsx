@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "TEACH HRIS - Human Resource Information System",
   description: "Employee CV Management & Catalog System",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({

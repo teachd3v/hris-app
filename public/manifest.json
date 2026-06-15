@@ -1,0 +1,21 @@
+{
+  "name": "TEACH Portal",
+  "short_name": "TEACH",
+  "description": "HRIS Management for TEACH GREAT Edunesia",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F6F7FB",
+  "theme_color": "#DC2626",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "192x192",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "512x512",
+      "type": "image/x-icon"
+    }
+  ]
+}

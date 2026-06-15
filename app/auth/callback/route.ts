@@ -20,9 +20,14 @@ export async function GET(request: Request) {
 
         const isAdmin = emp?.role === 'Admin' || user.email === 'teach.d3v@gmail.com';
         
-        if (isAdmin) {
+        // Detect if mobile
+        const userAgent = request.headers.get('user-agent') || '';
+        const isMobile = /mobile|android|iphone|ipad|phone/i.test(userAgent);
+        
+        if (isAdmin && !isMobile) {
           return NextResponse.redirect(`${origin}/admin/employees`)
         } else {
+          // If mobile, everyone goes to employee dashboard, even admins
           return NextResponse.redirect(`${origin}/employee/dashboard`)
         }
       }

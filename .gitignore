@@ -43,3 +43,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Agent rules & instructions
+AGENTS.md
+CLAUDE.md
+
+# Questionnaire json blueprints
+instrumen_new.json
+instrumen_sdt.json

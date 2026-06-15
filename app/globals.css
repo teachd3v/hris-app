@@ -54,6 +54,8 @@
     --yellow-soft: #FEF3C7;
     --green: #16A34A;
     --green-soft: #BBF7D0;
+    --blue: #2563EB;
+    --blue-soft: #DBEAFE;
 
     --glass-bg: rgba(255,255,255,.52);
     --glass-bg-strong: rgba(255,255,255,.72);
@@ -90,6 +92,8 @@
     --yellow-soft: rgba(250, 204, 21, 0.15);
     --green: #4ADE80;
     --green-soft: rgba(74, 222, 128, 0.15);
+    --blue: #60A5FA;
+    --blue-soft: rgba(96, 165, 250, 0.15);
 
     --glass-bg: rgba(18, 18, 22, 0.7);
     --glass-bg-strong: rgba(15, 15, 18, 0.85);

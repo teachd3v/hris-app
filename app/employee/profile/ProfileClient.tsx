@@ -8,11 +8,13 @@ import {
   GraduationCap,
   Award,
   Pencil,
+  Home,
 } from "lucide-react";
 import { dummyUserProfile } from "@/lib/dummy-data";
 import DashboardLayout from "@/components/common/DashboardLayout";
 import EditSectionModals, { type EditSectionKey } from "@/components/profile-edit/EditSectionModals";
 import AvatarUploadModal from "@/components/profile-edit/AvatarUploadModal";
+import Link from "next/link";
 
 const EMPLOYEE_MENU = [
   {
@@ -61,9 +63,9 @@ const fmtYearRange = (start: string, end: string) =>
 
 function Field({ label, value }: { label: string; value?: string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="text-[11px] font-bold text-ink-3 uppercase tracking-wider">{label}</div>
-      <div className="text-sm text-ink mt-1">{value || "—"}</div>
+      <div className="text-sm text-ink mt-1 break-words">{value || "—"}</div>
     </div>
   );
 }
@@ -149,66 +151,81 @@ export default function UserDashboard({ initialData }: { initialData: typeof dum
       userName={data.name}
       userInitials={data.initials}
       menuSections={EMPLOYEE_MENU}
+      hideTopbar
+      noPadding
     >
-      {/* Page Header — merged profile card */}
-      <div className="page-head">
-        <div className="avatar shrink-0 overflow-hidden relative">
-          {data.photo ? (
-            <img src={data.photo} alt={data.name} className="w-full h-full object-cover" />
-          ) : (
-            data.initials
-          )}
-          <button
-            type="button"
-            onClick={() => setIsAvatarModalOpen(true)}
-            title="Ubah foto"
-            className="absolute bottom-1.5 right-1.5 w-9 h-9 flex items-center justify-center rounded-full bg-[var(--surface-focus)] text-[var(--red)] shadow-md hover:opacity-90 transition-all z-10"
-          >
-            <Camera size={16} strokeWidth={2.25} />
-          </button>
-        </div>
-        <div className="flex-1 min-w-0">
-          <span className="eyebrow">Profil Karyawan</span>
-          <h1>Halo, {data.name} 👋</h1>
-          <div className="mt-1 text-[var(--ink-3)] text-[13px] flex gap-2 items-center flex-wrap">
-            <span>{data.title}</span>
-            <span className="w-1 h-1 rounded-full bg-[var(--ink-4)]" />
-            <span>{data.dept}</span>
+      <div className="flex flex-col min-h-screen md:min-h-0 bg-[var(--bg)] md:bg-transparent pb-8 w-full overflow-x-hidden">
+        
+        {/* Mobile Hero Header */}
+        <div className="relative pt-8 pb-16 px-6 bg-[var(--red)] text-white rounded-b-[40px] shadow-md overflow-hidden">
+          <div className="absolute -top-20 -right-20 w-64 h-64 bg-white opacity-10 rounded-full blur-[40px]"></div>
+          
+          <Link href="/employee/dashboard" className="absolute top-6 left-6 z-20 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full transition-colors">
+            <Home size={18} strokeWidth={2.5} className="text-white" />
+          </Link>
+          
+          <div className="relative z-10 text-center flex flex-col items-center">
+            <h1 className="text-white/90 text-[14px] font-bold tracking-widest uppercase mb-4">Profil Saya</h1>
+            
+            <div className="relative w-24 h-24 rounded-full bg-white/20 border-[3px] border-white/40 flex items-center justify-center overflow-hidden font-bold shadow-xl shrink-0 text-3xl">
+              {data.photo ? (
+                <img src={data.photo} alt={data.name} className="w-full h-full object-cover" />
+              ) : (
+                data.initials
+              )}
+              <button
+                type="button"
+                onClick={() => setIsAvatarModalOpen(true)}
+                title="Ubah foto"
+                className="absolute bottom-0 right-0 w-8 h-8 flex items-center justify-center rounded-full bg-white text-[var(--red)] shadow-[0_4px_12px_rgba(0,0,0,0.2)] hover:scale-105 transition-all z-10"
+              >
+                <Camera size={14} strokeWidth={2.5} />
+              </button>
+            </div>
+            
+            <h2 className="text-[24px] font-black tracking-tight mt-3">{data.name}</h2>
+            <p className="text-white/90 text-[14px] font-medium mt-0.5">{data.title} • {data.dept}</p>
+            
+            <div className="flex gap-2 justify-center mt-3">
+              <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold backdrop-blur-sm border border-white/20">{data.status}</span>
+              <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold backdrop-blur-sm border border-white/20">{data.level}</span>
+            </div>
           </div>
-          <div className="mt-2.5 flex gap-1.5 flex-wrap">
-            <span className="badge badge-green">{data.status}</span>
-            <span className="badge badge-yellow">{data.level}</span>
-            <span className="badge badge-ink">{data.employeeCode}</span>
-          </div>
-          <p className="!mt-3">Kelola data pribadi dan kepegawaian Anda di sini.</p>
         </div>
-      </div>
 
-      {/* Tab Navigation */}
-      <div className="flex gap-2 flex-wrap">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-semibold transition-all ${
-                isActive
-                  ? "bg-[var(--red)] text-white shadow-[0_8px_24px_-8px_rgba(220,38,38,0.6)]"
-                  : "bg-[var(--surface-item)] text-[var(--ink-2)] border border-line-2 hover:bg-[rgba(255,255,255,0.08)]"
-              }`}
-            >
-              <Icon size={16} strokeWidth={2.25} />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+        {/* Desktop Header */}
+        <div className="hidden md:flex justify-between items-center mb-8 px-5 pt-5">
+           <div>
+              <h1 className="text-3xl font-black text-[var(--ink)] tracking-tight">Profil Karyawan</h1>
+              <p className="text-[var(--ink-3)] text-sm mt-1">Kelola data personal dan karir Anda.</p>
+           </div>
+        </div>
 
-      {/* Tab Content */}
-      <div className="flex flex-col gap-4">
+        <div className="relative z-20 px-6 -mt-6 w-full max-w-full">
+          <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-2 border border-[var(--line)] mb-6 flex overflow-x-auto no-scrollbar snap-x w-full max-w-full justify-between gap-1">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex-shrink-0 snap-center flex items-center justify-center gap-2 rounded-[16px] text-[13px] font-bold transition-all duration-300 ${
+                    isActive
+                      ? "px-5 py-2.5 bg-[var(--red)] text-white shadow-[0_4px_12px_rgba(220,38,38,0.3)] flex-1"
+                      : "w-[44px] h-[44px] text-[var(--ink-3)] hover:bg-[var(--surface-item)] hover:text-[var(--ink)]"
+                  }`}
+                >
+                  <Icon size={isActive ? 16 : 20} strokeWidth={2.5} />
+                  {isActive && <span className="animate-in fade-in zoom-in duration-300 whitespace-nowrap">{tab.label}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="px-6 flex flex-col gap-5">
         {activeTab === "personal" && (
           <>
             <SectionCard
@@ -583,6 +600,7 @@ export default function UserDashboard({ initialData }: { initialData: typeof dum
             </div>
           </div>
         </div>
+      </div>
       </div>
 
       <AvatarUploadModal
