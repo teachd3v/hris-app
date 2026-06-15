@@ -14,7 +14,7 @@ export default async function EmployeeDashboardPage() {
     .from('employees')
     .select('name, photo_url, title')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   const name = employee?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
   const initials = name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()

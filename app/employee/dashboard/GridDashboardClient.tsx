@@ -174,10 +174,10 @@ export default function GridDashboardClient({
             <div className="flex justify-between items-center gap-4">
               <div className="flex-1 bg-[var(--surface-item)] rounded-[16px] p-3 text-center border border-[var(--line)] flex flex-col items-center">
                 <p className="text-[10px] text-[var(--ink-3)] font-bold uppercase tracking-wider mb-1">Clock In</p>
-                <p className={`text-[20px] font-black ${todayAttendance?.clockIn ? "text-[var(--green)]" : "text-[var(--ink-4)]"}`}>
-                  {formatTime(todayAttendance?.clockIn)}
+                <p className={`text-[20px] font-black ${mounted && todayAttendance?.clockIn ? "text-[var(--green)]" : "text-[var(--ink-4)]"}`}>
+                  {mounted ? formatTime(todayAttendance?.clockIn) : "--:--"}
                 </p>
-                {todayAttendance?.clockIn && (
+                {mounted && todayAttendance?.clockIn && (
                   <div className="mt-1.5 flex items-center gap-1 text-[8px] text-[var(--ink-3)] font-medium bg-white px-2 py-1 rounded-full shadow-sm border border-[var(--line)]">
                     <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--green)]"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                     <span className="truncate max-w-[80px]">{getDistanceText(todayAttendance.clockInLat, todayAttendance.clockInLng)}</span>
@@ -186,10 +186,10 @@ export default function GridDashboardClient({
               </div>
               <div className="flex-1 bg-[var(--surface-item)] rounded-[16px] p-3 text-center border border-[var(--line)] flex flex-col items-center">
                 <p className="text-[10px] text-[var(--ink-3)] font-bold uppercase tracking-wider mb-1">Clock Out</p>
-                <p className={`text-[20px] font-black ${todayAttendance?.clockOut ? "text-[var(--blue)]" : "text-[var(--ink-4)]"}`}>
-                  {formatTime(todayAttendance?.clockOut)}
+                <p className={`text-[20px] font-black ${mounted && todayAttendance?.clockOut ? "text-[var(--blue)]" : "text-[var(--ink-4)]"}`}>
+                  {mounted ? formatTime(todayAttendance?.clockOut) : "--:--"}
                 </p>
-                {todayAttendance?.clockOut && (
+                {mounted && todayAttendance?.clockOut && (
                   <div className="mt-1.5 flex items-center gap-1 text-[8px] text-[var(--ink-3)] font-medium bg-white px-2 py-1 rounded-full shadow-sm border border-[var(--line)]">
                     <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--blue)]"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                     <span className="truncate max-w-[80px]">{getDistanceText(todayAttendance.clockOutLat, todayAttendance.clockOutLng)}</span>
