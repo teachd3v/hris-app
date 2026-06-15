@@ -32,6 +32,7 @@ export default function AttendancePage() {
   const [successModal, setSuccessModal] = useState<{ isOpen: boolean; type: 'in' | 'out'; time: string } | null>(null);
   const [countdown, setCountdown] = useState(5);
   const [justClockedIn, setJustClockedIn] = useState(false);
+  const [cameraError, setCameraError] = useState<string>('');
 
   useEffect(() => {
     if (successModal?.isOpen) {
@@ -112,7 +113,11 @@ export default function AttendancePage() {
   };
 
   const startCamera = async () => {
+    setCameraError('');
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("PWA/Browser tidak mendukung akses kamera langsung. Pastikan koneksi aman (HTTPS).");
+      }
       if (activeStreamRef.current) {
         activeStreamRef.current.getTracks().forEach(track => track.stop());
       }
@@ -124,9 +129,9 @@ export default function AttendancePage() {
         videoRef.current.srcObject = stream;
         setStreamActive(true);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error accessing camera:", err);
-      setLocationError("Kamera tidak dapat diakses.");
+      setCameraError(err.message || "Kamera tidak dapat diakses. Pastikan izin kamera telah diberikan.");
     }
   };
 
@@ -438,11 +443,27 @@ export default function AttendancePage() {
             {/* Camera Viewfinder */}
             <div className="w-full aspect-[3/4] max-h-[420px] glass rounded-[var(--radius-hris-xl)] overflow-hidden relative mb-6 shadow-xl border border-[var(--glass-border)] animate-in fade-in duration-300">
               {!streamActive && (
-                 <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm text-[var(--ink-3)] flex-col p-6 text-center">
-                   <Loader2 className="animate-spin text-[var(--red)] mb-3" size={36} />
-                   <span className="text-[15px] font-bold text-[var(--ink)]">Mempersiapkan Presensi</span>
-                   <span className="text-[12px] text-[var(--ink-3)] mt-1">Mengakses kamera & memvalidasi GPS...</span>
-                 </div>
+                cameraError ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/95 backdrop-blur-sm text-[var(--ink-3)] flex-col p-6 text-center animate-in fade-in duration-300">
+                    <AlertCircle className="text-[var(--red)] mb-3" size={48} />
+                    <span className="text-[16px] font-bold text-[var(--ink)]">Akses Kamera Gagal</span>
+                    <span className="text-[12px] text-[var(--ink-3)] mt-2 mb-6 px-4">
+                      {cameraError}
+                    </span>
+                    <button 
+                      onClick={() => startCamera()} 
+                      className="px-6 py-2.5 rounded-full bg-[var(--ink)] text-white font-bold text-[13px] hover:bg-black transition-all active:scale-95 shadow-md"
+                    >
+                      Coba Lagi
+                    </button>
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm text-[var(--ink-3)] flex-col p-6 text-center">
+                    <Loader2 className="animate-spin text-[var(--red)] mb-3" size={36} />
+                    <span className="text-[15px] font-bold text-[var(--ink)]">Mempersiapkan Presensi</span>
+                    <span className="text-[12px] text-[var(--ink-3)] mt-1">Mengakses kamera & memvalidasi GPS...</span>
+                  </div>
+                )
               )}
               <video 
                 ref={videoRef} 
