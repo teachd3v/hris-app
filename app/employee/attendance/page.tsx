@@ -131,7 +131,11 @@ export default function AttendancePage() {
       }
     } catch (err: any) {
       console.error("Error accessing camera:", err);
-      setCameraError(err.message || "Kamera tidak dapat diakses. Pastikan izin kamera telah diberikan.");
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.message?.includes('denied')) {
+        setCameraError("Izin kamera ditolak oleh browser/perangkat. Silakan klik ikon gembok di sebelah URL situs pada bilah alamat browser Anda, lalu aktifkan izin kamera untuk situs ini secara manual.");
+      } else {
+        setCameraError(err.message || "Kamera tidak dapat diakses. Pastikan izin kamera telah diberikan.");
+      }
     }
   };
 
