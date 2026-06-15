@@ -102,6 +102,15 @@ export default function GridDashboardClient({
     return `Radius ${(dist * 1000).toFixed(0)}m`;
   };
 
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-[var(--bg)] flex flex-col items-center justify-center gap-3">
+        <div className="w-10 h-10 border-[3px] border-[var(--red)] border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-[13px] text-[var(--ink-3)] font-semibold">Memuat Dasbor...</p>
+      </div>
+    );
+  }
+
   return (
     <DashboardLayout
       role="Karyawan"

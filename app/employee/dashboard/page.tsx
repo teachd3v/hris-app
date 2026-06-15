@@ -1,16 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import dynamic from 'next/dynamic'
-
-const GridDashboardClient = dynamic(() => import('./GridDashboardClient'), { 
-  ssr: false,
-  loading: () => (
-    <div className="min-h-screen bg-[var(--bg)] flex flex-col items-center justify-center gap-3">
-      <div className="w-10 h-10 border-4 border-[var(--red)] border-t-transparent rounded-full animate-spin"></div>
-      <p className="text-[13px] text-[var(--ink-3)] font-semibold">Memuat Dasbor...</p>
-    </div>
-  )
-})
+import GridDashboardClient from './GridDashboardClient'
 
 export default async function EmployeeDashboardPage() {
   const supabase = await createClient()
