@@ -229,10 +229,13 @@ export default function AttendancePage() {
 
   const handleAttendance = async (type: 'in' | 'out') => {
     if (!employee) return;
+    // Uji Coba: Batasan geolocation dinonaktifkan agar bisa dites di mana saja
+    /*
     if (distance === null || distance > MAX_RADIUS_KM) {
       alert("Anda berada di luar jangkauan lokasi absen!");
       return;
     }
+    */
 
     setIsSubmitting(true);
     try {
@@ -450,7 +453,7 @@ export default function AttendancePage() {
               )}
               
               <span className="text-[11px] text-[var(--green)] font-semibold mt-3 flex items-center gap-1">
-                <CheckCircle size={12} className="text-[var(--green)]" /> Terverifikasi dalam radius kantor
+                <CheckCircle size={12} className="text-[var(--green)]" /> Terverifikasi (Mode Uji Coba)
               </span>
             </div>
 
@@ -508,15 +511,22 @@ export default function AttendancePage() {
                 )}
                 
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate text-[var(--ink)]">
+                  <p className="font-semibold truncate text-[var(--ink)] flex items-center gap-1.5">
                     {locationError ? 'Gagal mendapatkan lokasi' : 'Lokasi Terdeteksi'}
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[var(--yellow-soft)] text-[var(--yellow)] border border-[var(--yellow)]/20 uppercase shrink-0">
+                      Uji Coba
+                    </span>
                   </p>
                   <p className={`truncate text-[12px] mt-0.5 ${isLocationValid ? 'text-[var(--green)]' : 'text-[var(--ink-3)]'}`}>
-                    {distance === null 
-                      ? 'Menghitung jarak...' 
-                      : isLocationValid 
-                        ? `Dalam radius kantor (${(distance * 1000).toFixed(0)}m)` 
-                        : `Terlalu jauh (${(distance * 1000).toFixed(0)}m dari batas)`}
+                    {locationError ? (
+                      'GPS tidak aktif/error • Tetap bisa absen'
+                    ) : distance === null ? (
+                      'Menghitung jarak...' 
+                    ) : isLocationValid ? (
+                      `Dalam radius kantor (${(distance * 1000).toFixed(0)}m)` 
+                    ) : (
+                      `Luar radius (${(distance * 1000).toFixed(0)}m) • Tetap bisa absen`
+                    )}
                   </p>
                 </div>
               </div>
@@ -524,15 +534,13 @@ export default function AttendancePage() {
 
             {/* Action Button */}
             <button
-              disabled={!isLocationValid || isSubmitting}
+              disabled={isSubmitting}
               onClick={() => handleAttendance(hasClockedIn ? 'out' : 'in')}
               className={`
                 w-full h-14 rounded-full font-bold text-[15px] transition-all duration-300 transform active:scale-95 shadow-md flex justify-center items-center gap-2 mb-6
-                ${!isLocationValid 
-                  ? 'bg-[var(--surface-item)] text-[var(--ink-4)] cursor-not-allowed border border-[var(--glass-border)]' 
-                  : isSubmitting
-                    ? 'btn-primary opacity-70 cursor-wait'
-                    : 'btn-primary'
+                ${isSubmitting
+                  ? 'bg-[var(--surface-item)] text-[var(--ink-4)] cursor-wait border border-[var(--glass-border)]'
+                  : 'btn-primary'
                 }
               `}
             >

@@ -1,6 +1,6 @@
 # TEACH Portal — HRIS App
 
-> **v1.0.0** — First stable release · [hris-app-gamma.vercel.app](https://hris-app-gamma.vercel.app)
+> **v1.0.0** — First stable release · [hris-teach.vercel.app](https://hris-teach.vercel.app)
 
 Sistem Informasi SDM internal untuk **TEACH GREAT Edunesia**. Dibangun di atas Next.js 16, Supabase, dan di-deploy ke Vercel.
 
@@ -109,7 +109,7 @@ Setiap commit otomatis menjalankan `typecheck + lint`. Kalau gagal, commit dibat
 
 - **Production**: push ke `main` → Vercel auto-deploy + GitHub Actions push migrations
 - **Preview**: buat PR → Vercel auto-deploy preview URL
-- **Production URL**: [https://hris-app-gamma.vercel.app](https://hris-app-gamma.vercel.app)
+- **Production URL**: [https://hris-teach.vercel.app](https://hris-teach.vercel.app)
 
 ## Akses Admin
 
