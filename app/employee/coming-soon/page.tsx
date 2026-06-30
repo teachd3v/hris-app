@@ -19,7 +19,7 @@ const EMPLOYEE_MENU = [
     items: [
       { icon: "🏠", label: "Beranda", href: "/employee/beranda", isComingSoon: true },
       { icon: "⏰", label: "Presensi", href: "/employee/presensi", isComingSoon: true },
-      { icon: "📅", label: "Cuti", href: "/employee/cuti", isComingSoon: true },
+      { icon: "📅", label: "Cuti", href: "/employee/cuti" },
       { icon: "💰", label: "Payroll", href: "/employee/payroll", isComingSoon: true },
       { icon: "⚙️", label: "Pengaturan", href: "/employee/settings", isComingSoon: true },
     ],
