@@ -15,6 +15,14 @@ const lazyAdapter = new Proxy({} as any, {
       verificationTokensTable: verificationTokens,
     });
     return (adapter as any)[prop];
+  },
+  has(target, prop) {
+    return [
+      "createUser", "getUser", "getUserByEmail", "getUserByAccount",
+      "updateUser", "deleteUser", "linkAccount", "unlinkAccount",
+      "createSession", "getSessionAndUser", "updateSession", "deleteSession",
+      "createVerificationToken", "useVerificationToken"
+    ].includes(prop as string);
   }
 });
 
