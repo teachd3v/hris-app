@@ -2,8 +2,7 @@
 
 import { auth } from '@/auth'
 import { getDb } from '@/lib/db'
-import { getStorageClient, BUCKET_NAME } from '@/lib/storage'
-import { PutObjectCommand } from '@aws-sdk/client-s3'
+import { BUCKET_NAME, uploadToStorage } from '@/lib/storage'
 import { eq } from 'drizzle-orm'
 import * as schema from '@/lib/db/schema'
 import { revalidatePath } from 'next/cache'
@@ -239,15 +238,9 @@ export async function uploadAvatar(base64Image: string) {
   const buffer = Buffer.from(base64Data, 'base64')
   
   const fileName = `avatars/${employeeId}/avatar-${Date.now()}.jpg`
-  const s3 = getStorageClient()
 
   try {
-    await s3.send(new PutObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: fileName,
-      Body: buffer,
-      ContentType: 'image/jpeg'
-    }))
+    await uploadToStorage(fileName, buffer, 'image/jpeg')
   } catch (error) {
     console.error('Error uploading avatar:', error)
     throw new Error('Failed to upload avatar')
