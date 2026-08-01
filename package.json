@@ -49,5 +49,11 @@
     "husky": "^9.1.7",
     "tailwindcss": "^4",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "next": "$next",
+    "@cloudflare/next-on-pages": {
+      "next": "$next"
+    }
   }
 }
