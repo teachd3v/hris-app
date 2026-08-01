@@ -3,8 +3,7 @@
 import { auth } from '@/auth'
 import { getDb } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
-import { getStorageClient, BUCKET_NAME } from '@/lib/storage'
-import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { BUCKET_NAME, uploadToStorage, deleteFromStorage } from '@/lib/storage'
 import { eq, and, desc, asc } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
@@ -134,18 +133,12 @@ export async function createLeaveRequest(formData: FormData) {
 
   // Upload file lampiran jika ada
   if (file && file.size > 0) {
-    const s3 = getStorageClient()
     const fileExt = file.name.split('.').pop()
     const fileName = `leave_attachments/${employee.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
     const buffer = Buffer.from(await file.arrayBuffer())
 
     try {
-      await s3.send(new PutObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: fileName,
-        Body: buffer,
-        ContentType: file.type || 'application/octet-stream'
-      }))
+      await uploadToStorage(fileName, buffer, file.type || 'application/octet-stream')
       const r2PublicUrl = process.env.R2_PUBLIC_URL || `https://pub-placeholder.r2.dev`
       attachmentUrl = `${r2PublicUrl}/${fileName}`
     } catch (uploadError) {
@@ -197,15 +190,11 @@ export async function cancelLeaveRequest(id: string) {
 
   // Hapus berkas lampiran di storage jika ada
   if (request.attachment_url) {
-    const s3 = getStorageClient()
     const urlParts = request.attachment_url.split('/')
     // Extract everything after the public domain (e.g. leave_attachments/id/filename)
     const filePath = `leave_attachments/${employee.id}/${urlParts[urlParts.length - 1]}`
     try {
-      await s3.send(new DeleteObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: filePath
-      }))
+      await deleteFromStorage(filePath)
     } catch (e) {
       console.error('Failed to delete attachment from S3', e)
     }

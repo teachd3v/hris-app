@@ -4,8 +4,7 @@ import { auth } from '@/auth';
 import { getDb } from '@/lib/db';
 import { employees, attendances } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { getStorageClient, BUCKET_NAME } from '@/lib/storage';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { BUCKET_NAME, uploadToStorage } from '@/lib/storage';
 
 export async function fetchAttendanceData() {
   const session = await auth();
@@ -47,16 +46,10 @@ export async function submitAttendance(type: 'in' | 'out', formData: FormData) {
 
   let publicUrl = null;
   if (file) {
-    const s3 = getStorageClient();
     const fileName = `attendances/${employee.id}/${Date.now()}_${type}.jpg`;
     const buffer = Buffer.from(await file.arrayBuffer());
     
-    await s3.send(new PutObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: fileName,
-      Body: buffer,
-      ContentType: 'image/jpeg'
-    }));
+    await uploadToStorage(fileName, buffer, 'image/jpeg');
 
     // Cloudflare R2 public URL format if custom domain or dev domain is configured.
     // Replace with the actual public URL endpoint for the bucket

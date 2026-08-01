@@ -3,8 +3,7 @@
 import { auth } from '@/auth'
 import { getDb } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
-import { getStorageClient, BUCKET_NAME } from '@/lib/storage'
-import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { getStorageClient, BUCKET_NAME, uploadToStorage, deleteFromStorage } from '@/lib/storage'
 import { eq, and, desc } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { DocumentCategory } from '@/lib/dummy-data'
@@ -56,7 +55,6 @@ export async function uploadDocument(formData: FormData) {
   const finalFiles = [...existingFiles]
 
   // 1. Upload new files to Storage
-  const s3 = getStorageClient()
   for (const file of newFiles) {
     if (file.size === 0) continue // Skip empty files
 
@@ -65,12 +63,7 @@ export async function uploadDocument(formData: FormData) {
     const buffer = Buffer.from(await file.arrayBuffer())
 
     try {
-      await s3.send(new PutObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: fileName,
-        Body: buffer,
-        ContentType: file.type || 'application/octet-stream'
-      }))
+      await uploadToStorage(fileName, buffer, file.type || 'application/octet-stream')
       const r2PublicUrl = process.env.R2_PUBLIC_URL || `https://pub-placeholder.r2.dev`
       
       finalFiles.push({
@@ -134,12 +127,8 @@ export async function deleteDocument(id: string, fileUrl: string) {
   const filePath = `documents/${employee.id}/${fileName}`
 
   // 1. Delete from Storage
-  const s3 = getStorageClient()
   try {
-    await s3.send(new DeleteObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: filePath
-    }))
+    await deleteFromStorage(filePath)
   } catch (storageError) {
     console.error('Error deleting from storage:', storageError)
     // We continue even if storage delete fails
