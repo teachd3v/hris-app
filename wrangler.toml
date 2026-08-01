@@ -1,0 +1,13 @@
+name = "hris-teachapp"
+compatibility_date = "2024-03-20"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "hris-teachapp-db"
+database_id = "c2c0c304-c28c-4e7f-a061-7e6e65789fa1"
+
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "hris-teachapp-storage"

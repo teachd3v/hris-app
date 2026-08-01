@@ -1,9 +1,11 @@
-import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth-guard";
 import DashboardLayout from "@/components/common/DashboardLayout";
 import Link from "next/link";
 import EmployeeProfileTabs from "@/components/admin/EmployeeProfileTabs";
+import { getDb } from '@/lib/db'
+import * as schema from '@/lib/db/schema'
+import { eq, desc } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -32,46 +34,47 @@ const ADMIN_MENU = [
 export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
   const { id } = await params;
   const { user, profile: adminProfile } = await requireAdmin();
-  const adminSupabase = createAdminClient();
+  const db = getDb();
 
   // Fetch ALL employee data from all tables
   const [
-    { data: employee },
-    { data: family },
-    { data: experience },
-    { data: education },
-    { data: nonFormal },
-    { data: languages },
-    { data: skills },
-    { data: training },
-    { data: orgs },
-    { data: social },
-    { data: committee },
-    { data: achievements },
-    { data: promotions },
-    { data: interests },
-    { data: emergency },
-    { data: documents }
+    employeeRecords,
+    family,
+    experience,
+    education,
+    nonFormal,
+    languages,
+    skills,
+    training,
+    orgs,
+    social,
+    committee,
+    achievements,
+    promotions,
+    interests,
+    emergency,
+    documents
   ] = await Promise.all([
-    adminSupabase.from('employees').select('*').eq('id', id).single(),
-    adminSupabase.from('family_members').select('*').eq('employee_id', id),
-    adminSupabase.from('work_experiences').select('*').eq('employee_id', id).order('start_date', { ascending: false }),
-    adminSupabase.from('educations').select('*').eq('employee_id', id).order('year', { ascending: false }),
-    adminSupabase.from('non_formal_educations').select('*').eq('employee_id', id).order('year', { ascending: false }),
-    adminSupabase.from('languages').select('*').eq('employee_id', id),
-    adminSupabase.from('skills').select('*').eq('employee_id', id),
-    adminSupabase.from('trainings').select('*').eq('employee_id', id).order('date', { ascending: false }),
-    adminSupabase.from('org_experiences').select('*').eq('employee_id', id),
-    adminSupabase.from('social_activities').select('*').eq('employee_id', id).order('start_date', { ascending: false }),
-    adminSupabase.from('committee_experiences').select('*').eq('employee_id', id).order('year', { ascending: false }),
-    adminSupabase.from('achievements').select('*').eq('employee_id', id).order('date', { ascending: false }),
-    adminSupabase.from('promotion_histories').select('*').eq('employee_id', id).order('date', { ascending: false }),
-    adminSupabase.from('career_interests').select('*').eq('employee_id', id),
-    adminSupabase.from('emergency_contacts').select('*').eq('employee_id', id),
-    adminSupabase.from('employee_documents').select('*').eq('employee_id', id)
+    db.select().from(schema.employees).where(eq(schema.employees.id, id)).limit(1),
+    db.select().from(schema.family_members).where(eq(schema.family_members.employee_id, id)),
+    db.select().from(schema.work_experiences).where(eq(schema.work_experiences.employee_id, id)).orderBy(desc(schema.work_experiences.start_date)),
+    db.select().from(schema.educations).where(eq(schema.educations.employee_id, id)).orderBy(desc(schema.educations.year)),
+    db.select().from(schema.non_formal_educations).where(eq(schema.non_formal_educations.employee_id, id)).orderBy(desc(schema.non_formal_educations.year)),
+    db.select().from(schema.languages).where(eq(schema.languages.employee_id, id)),
+    db.select().from(schema.skills).where(eq(schema.skills.employee_id, id)),
+    db.select().from(schema.trainings).where(eq(schema.trainings.employee_id, id)).orderBy(desc(schema.trainings.date)),
+    db.select().from(schema.org_experiences).where(eq(schema.org_experiences.employee_id, id)),
+    db.select().from(schema.social_activities).where(eq(schema.social_activities.employee_id, id)).orderBy(desc(schema.social_activities.start_date)),
+    db.select().from(schema.committee_experiences).where(eq(schema.committee_experiences.employee_id, id)).orderBy(desc(schema.committee_experiences.year)),
+    db.select().from(schema.achievements).where(eq(schema.achievements.employee_id, id)).orderBy(desc(schema.achievements.date)),
+    db.select().from(schema.promotion_histories).where(eq(schema.promotion_histories.employee_id, id)).orderBy(desc(schema.promotion_histories.date)),
+    db.select().from(schema.career_interests).where(eq(schema.career_interests.employee_id, id)),
+    db.select().from(schema.emergency_contacts).where(eq(schema.emergency_contacts.employee_id, id)),
+    db.select().from(schema.employee_documents).where(eq(schema.employee_documents.employee_id, id))
   ]);
 
-  if (!employee) notFound();
+  if (employeeRecords.length === 0) notFound();
+  const employee = employeeRecords[0];
 
   const adminName = adminProfile?.name || user.email?.split('@')[0] || "Admin";
   const adminInitials = adminName.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
@@ -100,10 +103,10 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
           
           <div className="relative shrink-0">
             {employee.photo_url ? (
-              <img src={employee.photo_url} alt={employee.name} className="w-32 h-32 rounded-3xl object-cover shadow-xl border-4 border-white" />
+              <img src={employee.photo_url} alt={employee.name || ''} className="w-32 h-32 rounded-3xl object-cover shadow-xl border-4 border-white" />
             ) : (
               <div className="w-32 h-32 rounded-3xl bg-gradient-to-br from-hris-yellow to-hris-red flex items-center justify-center text-white text-4xl font-black shadow-xl border-4 border-white">
-                {employee.name.split(' ').map((n: any) => n[0]).join('').substring(0, 2)}
+                {(employee.name || '').split(' ').map((n: any) => n[0]).join('').substring(0, 2)}
               </div>
             )}
             <div className={`absolute -bottom-2 -right-2 px-3 py-1 rounded-full text-[10px] font-black border-2 border-white shadow-sm ${employee.status === 'Tetap' ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}`}>
@@ -132,7 +135,7 @@ export default async function EmployeeDetailPage({ params }: { params: { id: str
           data={{
             employee, family, experience, education, nonFormal, 
             languages, skills, training, orgs, social, 
-            committee, achievements, promotions, interests, emergency, documents
+            committee, achievements, promotions, interests, emergency, documents: documents.map((d: any) => ({ ...d, files: typeof d.files === 'string' ? JSON.parse(d.files) : d.files }))
           }} 
         />
       </div>

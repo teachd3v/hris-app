@@ -21,8 +21,7 @@ import { DocumentCategory, EmployeeDocument } from "@/lib/dummy-data";
 import DocumentModal from "@/components/documents/DocumentModal";
 import PreviewModal from "@/components/documents/PreviewModal";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
-import { getDocuments, uploadDocument, deleteDocument } from "./actions";
-import { createClient } from "@/lib/supabase/client";
+import { getDocuments, uploadDocument, deleteDocument, getEmployeeBasicProfile } from "./actions";
 
 const EMPLOYEE_MENU = [
   {
@@ -69,17 +68,13 @@ export default function DocumentsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchUser = useCallback(async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: emp } = await supabase.from('employees').select('name, photo_url').eq('id', user.id).single();
-      if (emp) {
-        setUserProfile({
-          name: emp.name,
-          initials: emp.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase(),
-          photo: emp.photo_url || ""
-        });
-      }
+    const emp = await getEmployeeBasicProfile();
+    if (emp) {
+      setUserProfile({
+        name: emp.name || "User",
+        initials: (emp.name || "User").split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase(),
+        photo: emp.photo_url || ""
+      });
     }
   }, []);
 

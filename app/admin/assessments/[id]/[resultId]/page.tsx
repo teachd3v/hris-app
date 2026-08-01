@@ -1,9 +1,9 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
 import { getAssessmentResult } from "../../actions";
 import { useEffect, useState, use } from "react";
 import { notFound, useRouter } from "next/navigation";
+import { getSession } from "next-auth/react";
 import DashboardLayout from "@/components/common/DashboardLayout";
 import Link from "next/link";
 import AssessmentCharts from "@/components/admin/AssessmentCharts";
@@ -107,20 +107,18 @@ export default function IndividualAssessmentPage({ params }: { params: Promise<{
 
   useEffect(() => {
     async function fetchData() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return router.push("/");
+      const session = await getSession();
+      if (!session?.user) return router.push("/");
 
-      const [pRes, resultData] = await Promise.all([
-        supabase.from('employees').select('name, photo_url').eq('id', user.id).maybeSingle(),
-        getAssessmentResult(id, resultId),
-      ]);
+      const resultData = await getAssessmentResult(id, resultId);
+      
+      const adminProf = { name: session.user.name || "Admin", photo_url: session.user.image || "" };
 
       const { template, assessment, profileData } = resultData;
       if (profileData) setProfileData(profileData);
       setTemplate(template);
       setAssessment(assessment);
-      setAdminProfile(pRes.data);
+      setAdminProfile(adminProf);
       setLoading(false);
     }
     fetchData();

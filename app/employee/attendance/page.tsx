@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { fetchAttendanceData, submitAttendance } from './actions';
 import { MapPin, Camera, Clock, CheckCircle, AlertCircle, Loader2, Navigation2 } from 'lucide-react';
 import { getDistanceFromLatLonInKm } from '@/lib/geo';
 import { useRouter } from 'next/navigation';
@@ -12,7 +12,6 @@ const MAX_RADIUS_KM = 1.0;
 
 export default function AttendancePage() {
   const router = useRouter();
-  const supabase = createClient();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const activeStreamRef = useRef<MediaStream | null>(null);
@@ -66,35 +65,19 @@ export default function AttendancePage() {
   const fetchAttendance = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/');
+      const res = await fetchAttendanceData();
+      if (res.error) {
+        if (res.error === 'Not authenticated') router.push('/');
         return;
       }
-
-      const { data: empData } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      
-      setEmployee(empData);
-
-      const today = new Date().toISOString().split('T')[0];
-      const { data: attData } = await (supabase as any)
-        .from('attendances')
-        .select('*')
-        .eq('employee_id', user.id)
-        .eq('date', today)
-        .maybeSingle() as any;
-      
-      setAttendanceToday(attData);
+      setEmployee(res.employee);
+      setAttendanceToday(res.attendanceToday);
     } catch (error) {
       console.error(error);
     } finally {
       setIsLoading(false);
     }
-  }, [supabase, router]);
+  }, [router]);
 
   useEffect(() => {
     fetchAttendance();
@@ -242,51 +225,19 @@ export default function AttendancePage() {
       const blob: any = await takePhoto();
       if (!blob) throw new Error("Gagal mengambil foto");
 
-      const fileName = `${employee.id}/${Date.now()}_${type}.jpg`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('attendances')
-        .upload(fileName, blob);
+      const formData = new FormData();
+      formData.append('file', blob);
+      formData.append('lat', location?.lat?.toString() || '0');
+      formData.append('lng', location?.lng?.toString() || '0');
 
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage
-        .from('attendances')
-        .getPublicUrl(fileName);
-
-      const today = new Date().toISOString().split('T')[0];
-      const now = new Date().toISOString();
+      const res = await submitAttendance(type, formData);
+      if (res.error) throw new Error(res.error);
 
       if (type === 'in') {
-        const { error } = await (supabase as any).from('attendances').insert({
-          employee_id: employee.id,
-          date: today,
-          clock_in: now,
-          clock_in_lat: location?.lat,
-          clock_in_lng: location?.lng,
-          clock_in_photo_url: publicUrlData.publicUrl,
-          status: 'PRESENT'
-        });
-        if (error) throw error;
         setJustClockedIn(true);
-      } else {
-        let durationHours = 0;
-        if (attendanceToday?.clock_in) {
-           const inTime = new Date(attendanceToday.clock_in).getTime();
-           const outTime = new Date(now).getTime();
-           durationHours = (outTime - inTime) / (1000 * 60 * 60);
-        }
-
-        const { error } = await (supabase as any).from('attendances')
-          .update({
-            clock_out: now,
-            clock_out_lat: location?.lat,
-            clock_out_lng: location?.lng,
-            clock_out_photo_url: publicUrlData.publicUrl,
-            duration_hours: durationHours
-          })
-          .eq('id', attendanceToday.id);
-        if (error) throw error;
       }
+      
+      const now = new Date().toISOString();
 
       await fetchAttendance();
       const timeStr = new Date(now).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -389,14 +340,14 @@ export default function AttendancePage() {
             {/* Clock In / Out Cards */}
             <div className="grid grid-cols-2 gap-4">
               {/* Clock In Card */}
-              <div className="p-3.5 bg-white rounded-xl border border-[var(--line)] shadow-sm flex flex-col items-center text-center">
+              <div className="p-3.5 bg-white rounded-xl border border-[var(--line)] shadow-sm flex flex-col items-center text-center w-full">
                 <span className="text-[11px] font-bold text-[var(--green)] uppercase tracking-wider mb-2">Clock In</span>
                 {attendanceToday?.clock_in_photo_url ? (
-                  <div className="w-16 h-16 rounded-lg overflow-hidden mb-2 border border-black/5 relative group">
+                  <div className="w-full aspect-[4/3] rounded-lg overflow-hidden mb-2 border border-black/5 relative group">
                     <img src={attendanceToday.clock_in_photo_url} alt="Selfie In" className="w-full h-full object-cover" />
                   </div>
                 ) : (
-                  <div className="w-16 h-16 rounded-lg bg-[var(--surface-item)] flex items-center justify-center mb-2">
+                  <div className="w-full aspect-[4/3] rounded-lg bg-[var(--surface-item)] flex items-center justify-center mb-2">
                     <Camera size={20} className="text-[var(--ink-4)]" />
                   </div>
                 )}
@@ -405,14 +356,14 @@ export default function AttendancePage() {
               </div>
 
               {/* Clock Out Card */}
-              <div className="p-3.5 bg-white rounded-xl border border-[var(--line)] shadow-sm flex flex-col items-center text-center">
+              <div className="p-3.5 bg-white rounded-xl border border-[var(--line)] shadow-sm flex flex-col items-center text-center w-full">
                 <span className="text-[11px] font-bold text-[var(--blue)] uppercase tracking-wider mb-2">Clock Out</span>
                 {attendanceToday?.clock_out_photo_url ? (
-                  <div className="w-16 h-16 rounded-lg overflow-hidden mb-2 border border-black/5 relative group">
+                  <div className="w-full aspect-[4/3] rounded-lg overflow-hidden mb-2 border border-black/5 relative group">
                     <img src={attendanceToday.clock_out_photo_url} alt="Selfie Out" className="w-full h-full object-cover" />
                   </div>
                 ) : (
-                  <div className="w-16 h-16 rounded-lg bg-[var(--surface-item)] flex items-center justify-center mb-2">
+                  <div className="w-full aspect-[4/3] rounded-lg bg-[var(--surface-item)] flex items-center justify-center mb-2">
                     <Camera size={20} className="text-[var(--ink-4)]" />
                   </div>
                 )}
@@ -440,14 +391,14 @@ export default function AttendancePage() {
             </div>
 
             {/* Clock In Info Card */}
-            <div className="p-5 bg-gradient-to-br from-[var(--bg)] to-white rounded-2xl border border-[var(--line)] shadow-sm flex flex-col items-center">
+            <div className="p-5 bg-gradient-to-br from-[var(--bg)] to-white rounded-2xl border border-[var(--line)] shadow-sm flex flex-col items-center w-full">
               <span className="text-[11px] font-bold tracking-widest text-[var(--green)] uppercase">WAKTU MASUK</span>
               <span className="text-[36px] font-black text-[var(--ink)] mt-1 tracking-tight">
                 {formatTimeStr(attendanceToday?.clock_in)}
               </span>
               
               {attendanceToday?.clock_in_photo_url && (
-                <div className="w-24 h-24 rounded-xl overflow-hidden mt-4 border border-black/5 shadow-sm">
+                <div className="w-full aspect-[4/3] rounded-xl overflow-hidden mt-4 border border-black/5 shadow-sm">
                   <img src={attendanceToday.clock_in_photo_url} alt="Selfie In" className="w-full h-full object-cover" />
                 </div>
               )}

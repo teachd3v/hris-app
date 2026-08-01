@@ -1,20 +1,15 @@
 import { ShieldCheck, Tag } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { auth, signIn } from "@/auth";
 
 export default async function Home() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const session = await auth();
+  const user = session?.user;
 
   if (user) {
-    const { data: emp } = await supabase
-      .from('employees')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
     const ADMIN_EMAILS = ['teachgen2025@gmail.com', 'teach.d3v@gmail.com'];
+    const emp = (session as any).employee;
     const isAdmin = emp?.role === 'Admin' || ADMIN_EMAILS.includes(user.email ?? '');
     
     if (isAdmin) {
@@ -26,22 +21,7 @@ export default async function Home() {
 
   const signInWithGoogle = async () => {
     "use server"
-    const supabase = await createClient()
-    const headersList = await headers()
-    const host = headersList.get('host')
-    const isLocal = host?.includes('localhost') || host?.includes('192.168.') || host?.includes('127.0.0.1')
-    const protocol = isLocal ? 'http' : 'https'
-    
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${protocol}://${host}/auth/callback`,
-      },
-    })
-    
-    if (data?.url) {
-      redirect(data.url)
-    }
+    await signIn("google");
   }
 
   // Detect mobile device on server

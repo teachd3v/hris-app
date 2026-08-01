@@ -17,8 +17,7 @@ import {
   Loader2
 } from "lucide-react";
 import DashboardLayout from "@/components/common/DashboardLayout";
-import { createClient } from "@/lib/supabase/client";
-import { getEmployeeAssessments, type EmployeeAssessment } from "./actions";
+import { getEmployeeAssessments, getEmployeeBasicProfile, type EmployeeAssessment } from "./actions";
 
 const EMPLOYEE_MENU = [
   {
@@ -56,17 +55,13 @@ export default function AssessmentsPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: emp } = await supabase.from('employees').select('name, photo_url').eq('id', user.id).single();
-        if (emp) {
-          setUserProfile({
-            name: emp.name,
-            initials: emp.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase(),
-            photo: emp.photo_url || ""
-          });
-        }
+      const emp = await getEmployeeBasicProfile();
+      if (emp) {
+        setUserProfile({
+          name: emp.name || "User",
+          initials: (emp.name || "User").split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase(),
+          photo: emp.photo_url || ""
+        });
       }
 
       const data = await getEmployeeAssessments();

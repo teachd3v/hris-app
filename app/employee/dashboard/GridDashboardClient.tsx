@@ -137,10 +137,8 @@ export default function GridDashboardClient({
               </button>
               <button 
                 onClick={async () => {
-                  const { createClient } = await import("@/lib/supabase/client");
-                  const supabase = createClient();
-                  await supabase.auth.signOut();
-                  window.location.href = "/";
+                  const { signOut } = await import("next-auth/react");
+                  await signOut({ callbackUrl: '/' });
                 }}
                 className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shadow-sm border border-white/20 text-white/90"
                 title="Logout"

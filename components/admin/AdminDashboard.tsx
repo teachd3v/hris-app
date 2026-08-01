@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { Employee } from "@/types/employee";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 
@@ -15,34 +14,7 @@ export default function AdminDashboard({ employees: initialEmployees }: AdminDas
   const [search, setSearch] = useState("");
   const [selectedDept, setSelectedDept] = useState("Semua");
   const router = useRouter();
-  const supabase = createClient();
-
-  // Update local state when props change
-  useEffect(() => {
-    setEmployees(initialEmployees);
-  }, [initialEmployees]);
-
-  // Real-time subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'employees'
-        },
-        () => {
-          router.refresh();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, router]);
+  // Real-time subscription removed for D1 (Cloudflare)
 
   const filtered = employees.filter((e) => {
     if (selectedDept !== "Semua" && e.department !== selectedDept) return false;
