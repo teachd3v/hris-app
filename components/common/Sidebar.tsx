@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { signOut } from "next-auth/react";
 
 export interface MenuItem {
   icon: string;
@@ -31,9 +31,7 @@ export default function Sidebar({ collapsed, onToggle, menuSections, user }: Sid
   const pathname = usePathname();
 
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    window.location.href = "/";
+    await signOut({ callbackUrl: '/' });
   };
 
   const isActive = (href: string) => {

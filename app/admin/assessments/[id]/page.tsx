@@ -1,9 +1,9 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
 import { getAssessmentAnalysis } from "../actions";
 import { useEffect, useState, use } from "react";
 import { notFound, useRouter } from "next/navigation";
+import { getSession } from "next-auth/react";
 import DashboardLayout from "@/components/common/DashboardLayout";
 import Link from "next/link";
 import AssessmentCharts from "@/components/admin/AssessmentCharts";
@@ -42,14 +42,12 @@ export default function AssessmentAnalysisPage({ params }: { params: Promise<{ i
 
   useEffect(() => {
     async function fetchData() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return router.push("/");
+      const session = await getSession();
+      if (!session?.user) return router.push("/");
 
-      const [pRes, analysisData] = await Promise.all([
-        supabase.from('employees').select('name, photo_url').eq('id', user.id).maybeSingle(),
-        getAssessmentAnalysis(id),
-      ]);
+      const analysisData = await getAssessmentAnalysis(id);
+      
+      const adminProf = { name: session.user.name || "Admin", photo_url: session.user.image || "" };
 
       const allEmployees = analysisData.employees;
       const existingAssessments = analysisData.assessments;
@@ -71,7 +69,7 @@ export default function AssessmentAnalysisPage({ params }: { params: Promise<{ i
 
       setTemplate(analysisData.template);
       setAssessments(mergedAssessments);
-      setAdminProfile(pRes.data);
+      setAdminProfile(adminProf);
       setLoading(false);
     }
     fetchData();

@@ -1,6 +1,11 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/auth'
+import { getDb } from '@/lib/db'
+import * as schema from '@/lib/db/schema'
+import { getStorageClient, BUCKET_NAME } from '@/lib/storage'
+import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { eq, and, desc, asc } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 export type LeaveStatus = 'PENDING_DIRECT_MANAGER' | 'PENDING_HC_ADMIN' | 'APPROVED' | 'REJECTED';
@@ -48,67 +53,53 @@ export interface LeaveRequest {
 
 // 1. Ambil data cuti untuk user yang sedang login
 export async function getLeaveRequests(): Promise<LeaveRequest[]> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
+  
+  const db = getDb()
+  const empRecords = await db.select({ id: schema.employees.id, name: schema.employees.name }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  if (empRecords.length === 0) return []
+  const employee = empRecords[0]
 
-  const { data, error } = await (supabase as any)
-    .from('leave_requests')
-    .select(`
-      *,
-      employees!leave_requests_employee_id_fkey(name)
-    `)
-    .eq('employee_id', user.id)
-    .order('created_at', { ascending: false })
+  const records = await db.select()
+    .from(schema.leave_requests)
+    .where(eq(schema.leave_requests.employee_id, employee.id))
+    .orderBy(desc(schema.leave_requests.created_at))
 
-  if (error) {
-    console.error('Error fetching leave requests:', error)
-    return []
-  }
-
-  return (data || []).map((item: any) => ({
-    ...item,
-    employee_name: item.employees?.name
+  return records.map((r: any) => ({
+    ...r,
+    duration_days: r.total_days ? parseFloat(r.total_days) : 0,
+    employee_name: employee.name
   }))
 }
 
 // 2. Ambil informasi profile karyawan terkait kuota cuti, atasan, & gender
 export async function getEmployeeLeaveInfo() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
 
-  // Ambil profile karyawan (cast to any to allow new columns manager_id and leave_ganti_hari)
-  const { data: employee, error: empError } = await (supabase as any)
-    .from('employees')
-    .select('id, name, gender, leave_total, leave_used, leave_ganti_hari, manager_id, dept')
-    .eq('id', user.id)
-    .single()
+  const db = getDb()
+  const empRecords = await db.select().from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  if (empRecords.length === 0) throw new Error('Gagal memuat profil karyawan')
+  const employee = empRecords[0]
 
-  if (empError || !employee) {
-    console.error('Error fetching employee leave info:', empError)
-    throw new Error('Gagal memuat profil karyawan')
-  }
-
-  // Ambil info manager (nama) jika ada
   let managerName = null
   if (employee.manager_id) {
-    const { data: manager } = await supabase
-      .from('employees')
-      .select('name')
-      .eq('id', employee.manager_id)
-      .single()
-    managerName = manager?.name || null
+    const managerRecords = await db.select({ name: schema.employees.name }).from(schema.employees).where(eq(schema.employees.id, employee.manager_id)).limit(1)
+    if (managerRecords.length > 0) managerName = managerRecords[0].name
   }
+
+  const leaveTotal = employee.leave_total !== null ? Number(employee.leave_total) : 12;
+  const leaveUsed = employee.leave_used !== null ? Number(employee.leave_used) : 0;
 
   return {
     id: employee.id,
     name: employee.name,
     gender: employee.gender || 'Laki-laki',
-    leave_total: employee.leave_total || 12,
-    leave_used: employee.leave_used || 0,
-    leave_available: (employee.leave_total || 12) - (employee.leave_used || 0),
-    leave_ganti_hari: employee.leave_ganti_hari || 0,
+    leave_total: leaveTotal,
+    leave_used: leaveUsed,
+    leave_available: leaveTotal - leaveUsed,
+    leave_ganti_hari: employee.leave_ganti_hari !== null ? Number(employee.leave_ganti_hari) : 0,
     manager_id: employee.manager_id,
     manager_name: managerName,
     dept: employee.dept
@@ -117,9 +108,13 @@ export async function getEmployeeLeaveInfo() {
 
 // 3. Buat pengajuan cuti baru
 export async function createLeaveRequest(formData: FormData) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
+
+  const db = getDb()
+  const empRecords = await db.select({ id: schema.employees.id, manager_id: schema.employees.manager_id }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  if (empRecords.length === 0) throw new Error('Employee not found')
+  const employee = empRecords[0]
 
   const leaveType = formData.get('leave_type') as LeaveCategory
   const startDate = formData.get('start_date') as string
@@ -139,265 +134,226 @@ export async function createLeaveRequest(formData: FormData) {
 
   // Upload file lampiran jika ada
   if (file && file.size > 0) {
+    const s3 = getStorageClient()
     const fileExt = file.name.split('.').pop()
-    const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
-    
-    const { error: uploadError } = await supabase.storage
-      .from('leave_attachments')
-      .upload(fileName, file)
+    const fileName = `leave_attachments/${employee.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+    const buffer = Buffer.from(await file.arrayBuffer())
 
-    if (uploadError) {
+    try {
+      await s3.send(new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: fileName,
+        Body: buffer,
+        ContentType: file.type || 'application/octet-stream'
+      }))
+      const r2PublicUrl = process.env.R2_PUBLIC_URL || `https://pub-placeholder.r2.dev`
+      attachmentUrl = `${r2PublicUrl}/${fileName}`
+    } catch (uploadError) {
       console.error('Error uploading attachment:', uploadError)
       throw new Error('Gagal mengunggah berkas lampiran')
     }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('leave_attachments')
-      .getPublicUrl(fileName)
-
-    attachmentUrl = publicUrl
   }
 
-  // Jika yang mengajukan adalah Chief / pimpinan tertinggi (tidak punya manager_id),
-  // langsung lompat ke PENDING_HC_ADMIN.
-  const { data: empProfile } = await (supabase as any)
-    .from('employees')
-    .select('manager_id')
-    .eq('id', user.id)
-    .single()
+  const initialStatus = employee.manager_id ? 'PENDING_DIRECT_MANAGER' : 'PENDING_HC_ADMIN'
 
-  const initialStatus = empProfile?.manager_id ? 'PENDING_DIRECT_MANAGER' : 'PENDING_HC_ADMIN'
-
-  const insertData = {
-    employee_id: user.id,
+  await db.insert(schema.leave_requests).values({
+    id: crypto.randomUUID(),
+    employee_id: employee.id,
     leave_type: leaveType,
     start_date: startDate,
     end_date: endDate,
-    duration_days: durationDays,
+    total_days: durationDays.toString(),
     reason: reason,
     status: initialStatus,
     start_time: startTime || null,
     end_time: endTime || null,
-    attachment_url: attachmentUrl
-  }
-
-  const { error } = await (supabase as any)
-    .from('leave_requests')
-    .insert(insertData)
-
-  if (error) {
-    console.error('Error inserting leave request:', error)
-    throw new Error('Gagal menyimpan pengajuan cuti: ' + error.message)
-  }
+    attachment_url: attachmentUrl,
+    created_at: new Date().toISOString()
+  })
 
   revalidatePath('/employee/cuti')
 }
 
 // 4. Batalkan pengajuan cuti (hanya jika status masih PENDING_DIRECT_MANAGER)
 export async function cancelLeaveRequest(id: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
 
-  // Pastikan record milik user dan status pending
-  const { data: request, error: fetchError } = await (supabase as any)
-    .from('leave_requests')
-    .select('status, attachment_url')
-    .eq('id', id)
-    .eq('employee_id', user.id)
-    .single()
+  const db = getDb()
+  const empRecords = await db.select({ id: schema.employees.id }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  if (empRecords.length === 0) throw new Error('Employee not found')
+  const employee = empRecords[0]
 
-  if (fetchError || !request) {
+  const reqRecords = await db.select({ id: schema.leave_requests.id, status: schema.leave_requests.status, attachment_url: schema.leave_requests.attachment_url }).from(schema.leave_requests).where(and(eq(schema.leave_requests.id, id), eq(schema.leave_requests.employee_id, employee.id))).limit(1)
+  
+  if (reqRecords.length === 0) {
     throw new Error('Pengajuan tidak ditemukan')
   }
 
+  const request = reqRecords[0]
   if (request.status !== 'PENDING_DIRECT_MANAGER') {
     throw new Error('Pengajuan sudah diproses, tidak dapat dibatalkan')
   }
 
   // Hapus berkas lampiran di storage jika ada
   if (request.attachment_url) {
+    const s3 = getStorageClient()
     const urlParts = request.attachment_url.split('/')
-    const fileName = urlParts[urlParts.length - 1]
-    const filePath = `${user.id}/${fileName}`
-    await supabase.storage.from('leave_attachments').remove([filePath])
+    // Extract everything after the public domain (e.g. leave_attachments/id/filename)
+    const filePath = `leave_attachments/${employee.id}/${urlParts[urlParts.length - 1]}`
+    try {
+      await s3.send(new DeleteObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: filePath
+      }))
+    } catch (e) {
+      console.error('Failed to delete attachment from S3', e)
+    }
   }
 
-  // Hapus dari database
-  const { error } = await (supabase as any)
-    .from('leave_requests')
-    .delete()
-    .eq('id', id)
-
-  if (error) {
-    throw new Error('Gagal membatalkan pengajuan: ' + error.message)
-  }
+  await db.delete(schema.leave_requests).where(eq(schema.leave_requests.id, id))
 
   revalidatePath('/employee/cuti')
 }
 
 // 5. Ambil data cuti yang membutuhkan persetujuan manager
 export async function getManagerApprovals(): Promise<LeaveRequest[]> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
 
-  // Cari semua leave_requests dari bawahan langsung (karyawan yang manager_id = user.id)
-  const { data, error } = await (supabase as any)
-    .from('leave_requests')
-    .select(`
-      *,
-      employees!leave_requests_employee_id_fkey(name, dept, title)
-    `)
-    .eq('status', 'PENDING_DIRECT_MANAGER')
-    .eq('employees.manager_id', user.id)
+  const db = getDb()
+  const empRecords = await db.select({ id: schema.employees.id }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  if (empRecords.length === 0) return []
+  const manager = empRecords[0]
 
-  if (error) {
-    console.error('Error fetching manager approvals:', error)
-    return []
+  // Cari semua bawahan (karyawan yang manager_id = user.id)
+  const subordinates = await db.select({ id: schema.employees.id, name: schema.employees.name, dept: schema.employees.dept, title: schema.employees.title }).from(schema.employees).where(eq(schema.employees.manager_id, manager.id))
+  
+  if (subordinates.length === 0) return []
+  
+  const subordinateIds = subordinates.map(s => s.id)
+  
+  let allRequests: any[] = []
+  
+  for (const sub of subordinates) {
+    const reqs = await db.select().from(schema.leave_requests).where(and(eq(schema.leave_requests.employee_id, sub.id), eq(schema.leave_requests.status, 'PENDING_DIRECT_MANAGER')))
+    const mappedReqs = reqs.map((r: any) => ({
+      ...r,
+      duration_days: r.total_days ? parseFloat(r.total_days) : 0,
+      employee_name: sub.name,
+      employees: { name: sub.name, dept: sub.dept, title: sub.title }
+    }))
+    allRequests = [...allRequests, ...mappedReqs]
   }
 
-  // Filter out any entries where join returned null for employee details (safety check)
-  return (data || [])
-    .filter((item: any) => item.employees !== null)
-    .map((item: any) => ({
-      ...item,
-      employee_name: item.employees?.name
-    }))
+  return allRequests
 }
 
 // 6. Approval/Rejection oleh Direct Manager
 export async function approveByManager(id: string, isApproved: boolean, notes: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
 
-  // Cari request & pastikan pengaju adalah bawahan manager ini
-  const { data: request, error: fetchError } = await (supabase as any)
-    .from('leave_requests')
-    .select('*, employees!leave_requests_employee_id_fkey(manager_id)')
-    .eq('id', id)
-    .single()
+  const db = getDb()
+  const empRecords = await db.select({ id: schema.employees.id }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  if (empRecords.length === 0) throw new Error('Employee not found')
+  const manager = empRecords[0]
 
-  if (fetchError || !request) throw new Error('Pengajuan tidak ditemukan')
-  if (request.employees?.manager_id !== user.id) throw new Error('Anda tidak memiliki wewenang untuk menyetujui pengajuan ini')
+  const reqRecords = await db.select().from(schema.leave_requests).where(eq(schema.leave_requests.id, id)).limit(1)
+  if (reqRecords.length === 0) throw new Error('Pengajuan tidak ditemukan')
+  const request = reqRecords[0]
+
+  // Pastikan pengaju adalah bawahan manager ini
+  const subRecords = await db.select({ manager_id: schema.employees.manager_id }).from(schema.employees).where(eq(schema.employees.id, request.employee_id ?? '')).limit(1)
+  if (subRecords.length === 0 || subRecords[0].manager_id !== manager.id) {
+    throw new Error('Anda tidak memiliki wewenang untuk menyetujui pengajuan ini')
+  }
 
   const nextStatus = isApproved ? 'PENDING_HC_ADMIN' : 'REJECTED'
 
-  const { error } = await (supabase as any)
-    .from('leave_requests')
-    .update({
-      status: nextStatus,
-      manager_approved_by: user.id,
-      manager_approved_at: new Date().toISOString(),
-      manager_notes: notes
-    })
-    .eq('id', id)
-
-  if (error) throw new Error('Gagal memproses persetujuan manager: ' + error.message)
+  await db.update(schema.leave_requests).set({
+    status: nextStatus,
+    manager_approved_by: manager.id,
+    manager_approved_at: new Date().toISOString(),
+    manager_notes: notes
+  }).where(eq(schema.leave_requests.id, id))
 
   revalidatePath('/employee/cuti')
 }
 
 // 7. Ambil data cuti yang membutuhkan persetujuan final HC Admin
 export async function getHCAdminApprovals(): Promise<LeaveRequest[]> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
 
-  // Pastikan user adalah Admin
-  const { data: employee } = await supabase
-    .from('employees')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+  const db = getDb()
+  const empRecords = await db.select({ id: schema.employees.id, role: schema.employees.role }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  if (empRecords.length === 0 || empRecords[0].role !== 'Admin') throw new Error('Unauthorized')
 
-  if (employee?.role !== 'Admin') throw new Error('Unauthorized')
-
-  const { data, error } = await (supabase as any)
-    .from('leave_requests')
-    .select(`
-      *,
-      employees!leave_requests_employee_id_fkey(name, dept, title)
-    `)
-    .eq('status', 'PENDING_HC_ADMIN')
-    .order('created_at', { ascending: true })
-
-  if (error) {
-    console.error('Error fetching HC approvals:', error)
-    return []
+  const reqRecords = await db.select().from(schema.leave_requests).where(eq(schema.leave_requests.status, 'PENDING_HC_ADMIN')).orderBy(asc(schema.leave_requests.created_at))
+  
+  const results = [];
+  for (const req of reqRecords) {
+    const subRecords = await db.select({ name: schema.employees.name, dept: schema.employees.dept, title: schema.employees.title }).from(schema.employees).where(eq(schema.employees.id, req.employee_id ?? '')).limit(1)
+    results.push({
+      ...req,
+      duration_days: req.total_days ? parseFloat(req.total_days) : 0,
+      employee_name: subRecords.length > 0 ? subRecords[0].name : 'Unknown',
+      employees: subRecords.length > 0 ? subRecords[0] : null
+    })
   }
 
-  return (data || []).map((item: any) => ({
-    ...item,
-    employee_name: item.employees?.name
-  }))
+  return results as LeaveRequest[]
 }
 
 // 8. Approval/Rejection oleh HC Admin
 export async function approveByHC(id: string, isApproved: boolean, notes: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
 
-  // Pastikan user adalah Admin
-  const { data: employee } = await supabase
-    .from('employees')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (employee?.role !== 'Admin') throw new Error('Unauthorized')
+  const db = getDb()
+  const empRecords = await db.select({ id: schema.employees.id, role: schema.employees.role }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  if (empRecords.length === 0 || empRecords[0].role !== 'Admin') throw new Error('Unauthorized')
+  const hcAdmin = empRecords[0]
 
   const nextStatus = isApproved ? 'APPROVED' : 'REJECTED'
 
-  const { error } = await (supabase as any)
-    .from('leave_requests')
-    .update({
-      status: nextStatus,
-      hc_approved_by: user.id,
-      hc_approved_at: new Date().toISOString(),
-      hc_notes: notes
-    })
-    .eq('id', id)
-
-  if (error) throw new Error('Gagal memproses persetujuan HC: ' + error.message)
+  await db.update(schema.leave_requests).set({
+    status: nextStatus,
+    hc_approved_by: hcAdmin.id,
+    hc_approved_at: new Date().toISOString(),
+    hc_notes: notes
+  }).where(eq(schema.leave_requests.id, id))
 
   revalidatePath('/employee/cuti')
 }
 
 // 9. Ambil daftar cuti APPROVED dari rekan kerja dalam departemen yang sama (untuk Kalender Tim)
 export async function getTeamApprovedLeaves(): Promise<LeaveRequest[]> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
 
-  // Ambil departemen user saat ini
-  const { data: currentEmployee } = await supabase
-    .from('employees')
-    .select('dept')
-    .eq('id', user.id)
-    .single()
-
-  if (!currentEmployee || !currentEmployee.dept) return []
+  const db = getDb()
+  const empRecords = await db.select({ id: schema.employees.id, dept: schema.employees.dept }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  if (empRecords.length === 0 || !empRecords[0].dept) return []
+  const currentEmployee = empRecords[0]
 
   // Cari semua approved leave dari departemen yang sama
-  const { data, error } = await (supabase as any)
-    .from('leave_requests')
-    .select(`
-      *,
-      employees!leave_requests_employee_id_fkey(name, dept)
-    `)
-    .eq('status', 'APPROVED')
-    .eq('employees.dept', currentEmployee.dept)
-
-  if (error) {
-    console.error('Error fetching team leaves:', error)
-    return []
+  // Note: We'll fetch all approved, then filter by dept. Drizzle doesn't support complex JOINs in simple select() yet without query builder relations
+  const reqRecords = await db.select().from(schema.leave_requests).where(eq(schema.leave_requests.status, 'APPROVED'))
+  
+  const results = [];
+  for (const req of reqRecords) {
+    const subRecords = await db.select({ name: schema.employees.name, dept: schema.employees.dept }).from(schema.employees).where(eq(schema.employees.id, req.employee_id ?? '')).limit(1)
+    if (subRecords.length > 0 && subRecords[0].dept === currentEmployee.dept) {
+      results.push({
+        ...req,
+        duration_days: req.total_days ? parseFloat(req.total_days) : 0,
+        employee_name: subRecords[0].name,
+        employees: subRecords[0]
+      })
+    }
   }
 
-  return (data || []).map((item: any) => ({
-    ...item,
-    employee_name: item.employees?.name
-  }))
+  return results as LeaveRequest[]
 }

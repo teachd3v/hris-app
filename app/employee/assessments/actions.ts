@@ -1,6 +1,9 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/auth'
+import { getDb } from '@/lib/db'
+import * as schema from '@/lib/db/schema'
+import { eq, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 export interface AssessmentTemplate {
@@ -30,51 +33,48 @@ export interface EmployeeAssessment {
 }
 
 export async function getEmployeeAssessments(): Promise<EmployeeAssessment[]> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
+
+  const db = getDb()
+  const empRecords = await db.select({ id: schema.employees.id }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  if (empRecords.length === 0) return []
+  const employee = empRecords[0]
 
   // Fetch all templates
-  const { data: templates, error: templatesError } = await supabase
-    .from('assessment_templates')
-    .select('*')
-  if (templatesError) throw new Error(templatesError.message)
+  const templates = await db.select().from(schema.assessment_templates)
 
   // Fetch employee assessments
-  const { data: assessments, error: assessError } = await supabase
-    .from('employee_assessments')
-    .select('*')
-    .eq('employee_id', user.id)
-  if (assessError) throw new Error(assessError.message)
+  const assessments = await db.select().from(schema.employee_assessments).where(eq(schema.employee_assessments.employee_id, employee.id))
 
   // Combine data for the UI
-  const combinedData = assessments?.map(a => {
-    const t = templates?.find(t => t.id === a.template_id)
+  const combinedData = assessments.map((a: any) => {
+    const t = templates.find(t => t.id === a.template_id)
     return {
       id: a.id,
       employee_id: a.employee_id ?? '',
       template_id: a.template_id ?? '',
       status: a.status as "Belum Diisi" | "Selesai" | "Terlewat",
       deadline: a.deadline,
-      answers: a.answers,
-      score: a.score,
+      answers: typeof a.answers === 'string' ? JSON.parse(a.answers) : a.answers,
+      score: a.score !== null ? Number(a.score) : null,
       feedback: a.feedback,
       submitted_at: a.submitted_at,
       title: t?.title || 'Unknown Assessment',
       category: t?.category || 'General',
       description: t?.description ?? ''
     }
-  }) || []
+  })
 
   // If there's a template that wasn't mapped (e.g. before backfill is executed), we can list it as virtual "Belum Diisi"
   for (const t of templates || []) {
-    const exists = combinedData.some(c => c.template_id === t.id)
+    const exists = combinedData.some((c: any) => c.template_id === t.id)
     if (!exists) {
       const deadlineDate = new Date()
       deadlineDate.setDate(21)
       combinedData.push({
         id: `virtual-${t.id}`,
-        employee_id: user.id,
+        employee_id: employee.id,
         template_id: t.id,
         status: 'Belum Diisi',
         deadline: deadlineDate.toISOString().split('T')[0],
@@ -82,8 +82,8 @@ export async function getEmployeeAssessments(): Promise<EmployeeAssessment[]> {
         score: null,
         feedback: null,
         submitted_at: null,
-        title: t.title,
-        category: t.category,
+        title: t.title ?? '',
+        category: t.category ?? '',
         description: t.description ?? ''
       })
     }
@@ -101,40 +101,56 @@ export async function getEmployeeAssessments(): Promise<EmployeeAssessment[]> {
 }
 
 export async function getAssessmentDetails(id: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
 
-  const { data: assessment, error } = await supabase
-    .from('employee_assessments')
-    .select(`
-      *,
-      assessment_templates (*)
-    `)
-    .eq('id', id)
-    .eq('employee_id', user.id)
-    .single()
+  const db = getDb()
+  const empRecords = await db.select({ id: schema.employees.id }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  if (empRecords.length === 0) throw new Error('Employee not found')
+  const employee = empRecords[0]
 
-  if (error) throw new Error(error.message)
-  return assessment
+  const assessmentRecords = await db.select().from(schema.employee_assessments).where(and(eq(schema.employee_assessments.id, id), eq(schema.employee_assessments.employee_id, employee.id))).limit(1)
+  if (assessmentRecords.length === 0) throw new Error('Assessment not found')
+  const assessment = assessmentRecords[0]
+
+  const templateRecords = await db.select().from(schema.assessment_templates).where(eq(schema.assessment_templates.id, assessment.template_id ?? '')).limit(1)
+
+  return {
+    ...assessment,
+    answers: typeof assessment.answers === 'string' ? JSON.parse(assessment.answers) : assessment.answers,
+    assessment_templates: templateRecords.length > 0 ? {
+      ...templateRecords[0],
+      schema: typeof templateRecords[0].schema === 'string' ? JSON.parse(templateRecords[0].schema) : templateRecords[0].schema
+    } : null
+  }
 }
 
 export async function submitAssessment(id: string, answers: any) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
 
-  const { error } = await supabase
-    .from('employee_assessments')
-    .update({
-      answers,
-      status: 'Selesai',
-      submitted_at: new Date().toISOString()
-    })
-    .eq('id', id)
-    .eq('employee_id', user.id)
+  const db = getDb()
+  const empRecords = await db.select({ id: schema.employees.id }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  if (empRecords.length === 0) throw new Error('Employee not found')
+  const employee = empRecords[0]
 
-  if (error) throw new Error(error.message)
+  await db.update(schema.employee_assessments).set({
+    answers: JSON.stringify(answers), // Ensure object is stringified for SQLite D1
+    status: 'Selesai',
+    submitted_at: new Date().toISOString()
+  }).where(and(eq(schema.employee_assessments.id, id), eq(schema.employee_assessments.employee_id, employee.id)))
+
   revalidatePath('/employee/assessments')
   revalidatePath(`/employee/assessments/${id}`)
+}
+
+export async function getEmployeeBasicProfile() {
+  const session = await auth()
+  if (!session?.user?.email) return null
+
+  const db = getDb()
+  const empRecords = await db.select({ name: schema.employees.name, photo_url: schema.employees.photo_url }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  
+  if (empRecords.length === 0) return null
+  return empRecords[0]
 }

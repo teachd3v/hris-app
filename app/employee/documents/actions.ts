@@ -1,27 +1,29 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/auth'
+import { getDb } from '@/lib/db'
+import * as schema from '@/lib/db/schema'
+import { getStorageClient, BUCKET_NAME } from '@/lib/storage'
+import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { eq, and, desc } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { DocumentCategory } from '@/lib/dummy-data'
 
 export async function getDocuments() {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
 
-  const { data, error } = await supabase
-    .from('employee_documents')
-    .select('*')
-    .eq('employee_id', user.id)
-    .order('created_at', { ascending: false })
+  const db = getDb()
+  const empRecords = await db.select({ id: schema.employees.id }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  if (empRecords.length === 0) return []
+  const employee = empRecords[0]
 
-  if (error) {
-    console.error('Error fetching documents:', error)
-    return []
-  }
+  const docs = await db.select()
+    .from(schema.employee_documents)
+    .where(eq(schema.employee_documents.employee_id, employee.id))
+    .orderBy(desc(schema.employee_documents.created_at))
 
-  return data.map(doc => ({
+  return docs.map((doc: any) => ({
     id: doc.id,
     title: doc.title,
     type: doc.type,
@@ -30,15 +32,18 @@ export async function getDocuments() {
     category: doc.category as DocumentCategory,
     subCategory: doc.sub_category ?? undefined,
     fileUrl: doc.file_url ?? undefined,
-    files: (doc.files || []) as Array<{ url: string; name: string; size: string; type: string }>
+    files: (typeof doc.files === 'string' ? JSON.parse(doc.files) : doc.files || []) as Array<{ url: string; name: string; size: string; type: string }>
   }))
 }
 
 export async function uploadDocument(formData: FormData) {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
+
+  const db = getDb()
+  const empRecords = await db.select({ id: schema.employees.id }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  if (empRecords.length === 0) throw new Error('Employee not found')
+  const employee = empRecords[0]
 
   const id = formData.get('id') as string | null
   const title = formData.get('title') as string
@@ -51,32 +56,33 @@ export async function uploadDocument(formData: FormData) {
   const finalFiles = [...existingFiles]
 
   // 1. Upload new files to Storage
+  const s3 = getStorageClient()
   for (const file of newFiles) {
-    if (file.size === 0) continue // Skip empty files (happens with empty inputs)
+    if (file.size === 0) continue // Skip empty files
 
     const fileExt = file.name.split('.').pop()
-    const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
-    const filePath = `${fileName}`
+    const fileName = `documents/${employee.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+    const buffer = Buffer.from(await file.arrayBuffer())
 
-    const { error: uploadError } = await supabase.storage
-      .from('documents')
-      .upload(filePath, file)
-
-    if (uploadError) {
+    try {
+      await s3.send(new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: fileName,
+        Body: buffer,
+        ContentType: file.type || 'application/octet-stream'
+      }))
+      const r2PublicUrl = process.env.R2_PUBLIC_URL || `https://pub-placeholder.r2.dev`
+      
+      finalFiles.push({
+        url: `${r2PublicUrl}/${fileName}`,
+        name: file.name,
+        size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+        type: fileExt?.toUpperCase() || 'FILE'
+      })
+    } catch (uploadError) {
       console.error('Error uploading to storage:', uploadError)
       throw new Error(`Failed to upload ${file.name} to storage`)
     }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('documents')
-      .getPublicUrl(filePath)
-
-    finalFiles.push({
-      url: publicUrl,
-      name: file.name,
-      size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-      type: fileExt?.toUpperCase() || 'FILE'
-    })
   }
 
   if (finalFiles.length === 0) {
@@ -87,7 +93,7 @@ export async function uploadDocument(formData: FormData) {
   const primaryFile = finalFiles[0]
 
   const dbData = {
-    employee_id: user.id,
+    employee_id: employee.id,
     title: title,
     category: category,
     sub_category: subCategory,
@@ -95,70 +101,63 @@ export async function uploadDocument(formData: FormData) {
     size: primaryFile.size,
     date: new Date().toISOString(),
     file_url: primaryFile.url,
-    files: finalFiles
+    files: JSON.stringify(finalFiles) // Ensure object is stringified for SQLite D1
   }
 
   if (id) {
     // 2. Update existing record
-    const { error: dbError } = await supabase
-      .from('employee_documents')
-      .update(dbData)
-      .eq('id', id)
-      .eq('employee_id', user.id)
-
-    if (dbError) {
-      console.error('Error updating DB:', dbError)
-      throw new Error('Failed to update document metadata')
-    }
+    await db.update(schema.employee_documents).set(dbData).where(and(eq(schema.employee_documents.id, id), eq(schema.employee_documents.employee_id, employee.id)))
   } else {
     // 3. Insert new record
-    const { error: dbError } = await supabase
-      .from('employee_documents')
-      .insert(dbData)
-
-    if (dbError) {
-      console.error('Error saving to DB:', dbError)
-      throw new Error('Failed to save document metadata')
-    }
+    await db.insert(schema.employee_documents).values({
+      ...dbData,
+      id: crypto.randomUUID(),
+      created_at: new Date().toISOString()
+    })
   }
 
   revalidatePath('/employee/documents')
 }
 
 export async function deleteDocument(id: string, fileUrl: string) {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
+
+  const db = getDb()
+  const empRecords = await db.select({ id: schema.employees.id }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  if (empRecords.length === 0) throw new Error('Employee not found')
+  const employee = empRecords[0]
 
   // Extract path from URL
-  // Example: https://.../storage/v1/object/public/documents/USER_ID/filename.pdf
-  // We need "USER_ID/filename.pdf"
   const urlParts = fileUrl.split('/')
   const fileName = urlParts[urlParts.length - 1]
-  const filePath = `${user.id}/${fileName}`
+  const filePath = `documents/${employee.id}/${fileName}`
 
   // 1. Delete from Storage
-  const { error: storageError } = await supabase.storage
-    .from('documents')
-    .remove([filePath])
-
-  if (storageError) {
+  const s3 = getStorageClient()
+  try {
+    await s3.send(new DeleteObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: filePath
+    }))
+  } catch (storageError) {
     console.error('Error deleting from storage:', storageError)
-    // We continue even if storage delete fails, as the record is the primary source
+    // We continue even if storage delete fails
   }
 
   // 2. Delete from Database
-  const { error: dbError } = await supabase
-    .from('employee_documents')
-    .delete()
-    .eq('id', id)
-    .eq('employee_id', user.id)
-
-  if (dbError) {
-    console.error('Error deleting from DB:', dbError)
-    throw new Error('Failed to delete document from database')
-  }
+  await db.delete(schema.employee_documents).where(and(eq(schema.employee_documents.id, id), eq(schema.employee_documents.employee_id, employee.id)))
 
   revalidatePath('/employee/documents')
+}
+
+export async function getEmployeeBasicProfile() {
+  const session = await auth()
+  if (!session?.user?.email) return null
+
+  const db = getDb()
+  const empRecords = await db.select({ name: schema.employees.name, photo_url: schema.employees.photo_url }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  
+  if (empRecords.length === 0) return null
+  return empRecords[0]
 }

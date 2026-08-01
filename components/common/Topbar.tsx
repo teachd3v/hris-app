@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, ArrowLeftRight } from "lucide-react";
 import GlobalSearch from "./GlobalSearch";
 
-import { createClient } from "@/lib/supabase/client";
+import { getSession, signOut } from "next-auth/react";
 
 export default function Topbar({ 
   role = "Karyawan", 
@@ -24,21 +24,15 @@ export default function Topbar({
 
   useEffect(() => {
     const fetchRole = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from('employees')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-        
+      const session = await getSession();
+      if (session?.user) {
+        // Since we don't fetch role from DB on client side dynamically right now for performance,
+        // we can just check email. Real app might fetch from an API route.
         const ADMIN_EMAILS = ['teachgen2025@gmail.com', 'teach.d3v@gmail.com'];
-        const isAdmin = data?.role === 'Admin' || ADMIN_EMAILS.includes(user.email ?? '');
+        const isAdmin = ADMIN_EMAILS.includes(session.user.email ?? '');
         
         console.log("Topbar Auth Check:", { 
-          email: user.email, 
-          dbRole: data?.role, 
+          email: session.user.email, 
           isAdmin,
           currentPageRole: role 
         });
@@ -46,7 +40,7 @@ export default function Topbar({
         if (isAdmin) {
           setActualRole('Admin');
         } else {
-          setActualRole(data?.role || 'Employee');
+          setActualRole('Employee');
         }
       }
     };
@@ -54,9 +48,7 @@ export default function Topbar({
   }, [role]);
 
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    window.location.href = "/";
+    await signOut({ callbackUrl: '/' });
   };
 
   const handleSwitchMode = () => {

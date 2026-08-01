@@ -1,7 +1,9 @@
-import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth-guard";
 import DashboardLayout from "@/components/common/DashboardLayout";
 import Link from "next/link";
+import { getDb } from '@/lib/db'
+import * as schema from '@/lib/db/schema'
+import { desc, sql } from 'drizzle-orm'
 
 const ADMIN_MENU = [
   {
@@ -26,19 +28,19 @@ const ADMIN_MENU = [
 
 export default async function AdminAssessmentsPage() {
   const { user, profile: adminProfile } = await requireAdmin();
-  const adminSupabase = createAdminClient();
+  const db = getDb();
 
   const [
-    { data: templates },
-    { data: allAssessments },
-    { count: empCount },
+    templates,
+    allAssessments,
+    empCountResult,
   ] = await Promise.all([
-    adminSupabase.from('assessment_templates').select('*').order('created_at', { ascending: false }),
-    adminSupabase.from('employee_assessments').select('template_id, status'),
-    adminSupabase.from('employees').select('*', { count: 'exact', head: true }),
+    db.select().from(schema.assessment_templates).orderBy(desc(schema.assessment_templates.created_at)),
+    db.select({ template_id: schema.employee_assessments.template_id, status: schema.employee_assessments.status }).from(schema.employee_assessments),
+    db.select({ count: sql<number>`count(*)` }).from(schema.employees),
   ]);
 
-  const employeesCount = empCount || 0;
+  const employeesCount = empCountResult[0]?.count || 0;
 
   const adminName = adminProfile?.name || user.email?.split('@')[0] || "Admin";
   const adminInitials = adminName.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);

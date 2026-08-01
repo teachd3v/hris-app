@@ -1,94 +1,85 @@
-import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { auth } from '@/auth'
+import { getDb } from '@/lib/db'
+import * as schema from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import ProfileClient from './ProfileClient'
 import { dummyUserProfile } from '@/lib/dummy-data'
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
+  const session = await auth()
+  const user = session?.user
   
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    redirect('/login')
+  if (!user || !user.email) {
+    redirect('/')
   }
 
-  // Fetch all related data. Use Admin Client to bypass RLS issues in Server Component if the key is available,
-  // otherwise fallback to standard authenticated client.
-  const hasAdminKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY
-  const dbClient = hasAdminKey ? createAdminClient() : supabase
+  const db = getDb()
 
-  let { data: employee } = await dbClient
-    .from('employees')
-    .select(`
-      *,
-      family:family_members(*),
-      emergencyContacts:emergency_contacts(*),
-      workExperience:work_experiences(*),
-      promotionHistory:promotion_histories(*),
-      education:educations(*),
-      nonFormalEducation:non_formal_educations(*),
-      languages:languages(*),
-      skills:skills(*),
-      training:trainings(*),
-      careerInterests:career_interests(*),
-      orgExperience:org_experiences(*),
-      socialActivities:social_activities(*),
-      committeeExperience:committee_experiences(*),
-      achievements:achievements(*)
-    `)
-    .eq('id', user.id)
-    .single()
-
-  if (!employee) {
+  let employeeRecords = await db.select().from(schema.employees).where(eq(schema.employees.email, user.email)).limit(1)
+  
+  if (employeeRecords.length === 0) {
     // Insert new basic profile if it doesn't exist
-    const { data: newEmployee, error } = await dbClient
-      .from('employees')
-      .insert({
-        id: user.id,
-        name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-        email: user.email!,
-        nationality: 'Indonesia',
-        religion: 'Islam',
-        country: 'Indonesia',
-      })
-      .select(`
-        *,
-        family:family_members(*),
-        emergencyContacts:emergency_contacts(*),
-        workExperience:work_experiences(*),
-        promotionHistory:promotion_histories(*),
-        education:educations(*),
-        nonFormalEducation:non_formal_educations(*),
-        languages:languages(*),
-        skills:skills(*),
-        training:trainings(*),
-        careerInterests:career_interests(*),
-        orgExperience:org_experiences(*),
-        socialActivities:social_activities(*),
-        committeeExperience:committee_experiences(*),
-        achievements:achievements(*)
-      `)
-      .single()
-      
-    if (error) {
-      console.error('Error creating employee record:', error)
-      // Fallback to dummy data if insert fails to prevent hard crash
+    const newId = crypto.randomUUID();
+    await db.insert(schema.employees).values({
+      id: newId,
+      name: user.name || user.email.split('@')[0] || 'User',
+      email: user.email,
+      nationality: 'Indonesia',
+      religion: 'Islam',
+      country: 'Indonesia',
+    });
+    employeeRecords = await db.select().from(schema.employees).where(eq(schema.employees.id, newId)).limit(1)
+    if (employeeRecords.length === 0) {
       return <ProfileClient initialData={dummyUserProfile} />
     }
-    
-    employee = newEmployee
   }
+
+  const employee = employeeRecords[0]
+  const employeeId = employee.id
+
+  const [
+    family,
+    emergencyContacts,
+    workExperience,
+    promotionHistory,
+    education,
+    nonFormalEducation,
+    languages,
+    skills,
+    training,
+    careerInterests,
+    orgExperience,
+    socialActivities,
+    committeeExperience,
+    achievements
+  ] = await Promise.all([
+    db.select().from(schema.family_members).where(eq(schema.family_members.employee_id, employeeId)),
+    db.select().from(schema.emergency_contacts).where(eq(schema.emergency_contacts.employee_id, employeeId)),
+    db.select().from(schema.work_experiences).where(eq(schema.work_experiences.employee_id, employeeId)),
+    db.select().from(schema.promotion_histories).where(eq(schema.promotion_histories.employee_id, employeeId)),
+    db.select().from(schema.educations).where(eq(schema.educations.employee_id, employeeId)),
+    db.select().from(schema.non_formal_educations).where(eq(schema.non_formal_educations.employee_id, employeeId)),
+    db.select().from(schema.languages).where(eq(schema.languages.employee_id, employeeId)),
+    db.select().from(schema.skills).where(eq(schema.skills.employee_id, employeeId)),
+    db.select().from(schema.trainings).where(eq(schema.trainings.employee_id, employeeId)),
+    db.select().from(schema.career_interests).where(eq(schema.career_interests.employee_id, employeeId)),
+    db.select().from(schema.org_experiences).where(eq(schema.org_experiences.employee_id, employeeId)),
+    db.select().from(schema.social_activities).where(eq(schema.social_activities.employee_id, employeeId)),
+    db.select().from(schema.committee_experiences).where(eq(schema.committee_experiences.employee_id, employeeId)),
+    db.select().from(schema.achievements).where(eq(schema.achievements.employee_id, employeeId))
+  ]);
 
   // Map to the shape expected by DashboardClient
   // We use the dummyUserProfile as a base to ensure all fields exist
   const mappedProfile: typeof dummyUserProfile = {
     ...dummyUserProfile,
-    id: employee.id, // Better to use user.id here or keep it as employee_code if needed, but keeping id as id
+    id: employee.id,
     employeeCode: employee.employee_code || '',
-    name: employee.name,
-    initials: employee.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase(),
+    name: employee.name || 'User',
+    initials: (employee.name || '').split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase(),
     photo: employee.photo_url || undefined,
-    email: employee.email,
+    email: employee.email || '',
     phone: employee.phone || '',
     nik: employee.nik || '',
     birth: employee.birth_date || '',
@@ -115,15 +106,15 @@ export default async function DashboardPage() {
     bank: employee.bank || '',
     
     leave: {
-      total: employee.leave_total || 12,
-      used: employee.leave_used || 0,
+      total: employee.leave_total !== null ? Number(employee.leave_total) : 12,
+      used: employee.leave_used !== null ? Number(employee.leave_used) : 0,
     },
     attendance: {
       present: employee.attendance_present || 0,
       late: employee.attendance_late || 0,
     },
     
-    family: (employee.family || [])
+    family: family
       .map((item: any) => ({
         id: item.id,
         relationship: item.relationship,
@@ -134,11 +125,9 @@ export default async function DashboardPage() {
       }))
       .sort((a: any, b: any) => (b.birthDate || '').localeCompare(a.birthDate || '')),
     
-    emergencyContacts: (employee.emergencyContacts || []).map((item: any) => ({
-      ...item
-    })),
+    emergencyContacts: emergencyContacts.map((item: any) => ({ ...item })),
     
-    workExperience: (employee.workExperience || [])
+    workExperience: workExperience
       .map((item: any) => ({
         id: item.id,
         company: item.company,
@@ -149,7 +138,7 @@ export default async function DashboardPage() {
       }))
       .sort((a: any, b: any) => (b.startDate || '').localeCompare(a.startDate || '')),
     
-    promotionHistory: (employee.promotionHistory || [])
+    promotionHistory: promotionHistory
       .map((item: any) => ({
         id: item.id,
         date: item.date || '',
@@ -159,27 +148,19 @@ export default async function DashboardPage() {
       }))
       .sort((a: any, b: any) => (b.date || '').localeCompare(a.date || '')),
     
-    education: (employee.education || [])
-      .map((item: any) => ({
-        ...item
-      }))
+    education: education
+      .map((item: any) => ({ ...item }))
       .sort((a: any, b: any) => (b.year || '').localeCompare(a.year || '')),
     
-    nonFormalEducation: (employee.nonFormalEducation || [])
-      .map((item: any) => ({
-        ...item
-      }))
+    nonFormalEducation: nonFormalEducation
+      .map((item: any) => ({ ...item }))
       .sort((a: any, b: any) => (b.year || '').localeCompare(a.year || '')),
     
-    languages: (employee.languages || []).map((item: any) => ({
-      ...item
-    })),
+    languages: languages.map((item: any) => ({ ...item })),
     
-    skills: (employee.skills || []).map((item: any) => ({
-      ...item
-    })),
+    skills: skills.map((item: any) => ({ ...item })),
     
-    training: (employee.training || [])
+    training: training
       .map((item: any) => ({
         id: item.id,
         name: item.name,
@@ -188,15 +169,11 @@ export default async function DashboardPage() {
       }))
       .sort((a: any, b: any) => (b.date || '').localeCompare(a.date || '')),
     
-    careerInterests: (employee.careerInterests || []).map((item: any) => ({
-      ...item
-    })),
+    careerInterests: careerInterests.map((item: any) => ({ ...item })),
     
-    orgExperience: (employee.orgExperience || []).map((item: any) => ({
-      ...item
-    })),
+    orgExperience: orgExperience.map((item: any) => ({ ...item })),
     
-    socialActivities: (employee.socialActivities || [])
+    socialActivities: socialActivities
       .map((item: any) => ({
         id: item.id,
         activity: item.activity,
@@ -207,13 +184,11 @@ export default async function DashboardPage() {
       }))
       .sort((a: any, b: any) => (b.startDate || '').localeCompare(a.startDate || '')),
     
-    committeeExperience: (employee.committeeExperience || [])
-      .map((item: any) => ({
-        ...item
-      }))
+    committeeExperience: committeeExperience
+      .map((item: any) => ({ ...item }))
       .sort((a: any, b: any) => (b.year || '').localeCompare(a.year || '')),
     
-    achievements: (employee.achievements || [])
+    achievements: achievements
       .map((item: any) => ({
         id: item.id,
         title: item.title,
