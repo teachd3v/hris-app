@@ -9,6 +9,7 @@ import Link from "next/link";
 import AssessmentCharts from "@/components/admin/AssessmentCharts";
 import AssessmentReportTemplate from "@/components/admin/AssessmentReportTemplate";
 import { calculateSDTScores, getSDTProfile, getScoreGradation } from "@/lib/assessment-utils";
+import { loadScript } from "@/lib/utils/scriptLoader";
 
 const ADMIN_MENU = [
   {
@@ -52,8 +53,13 @@ export default function IndividualAssessmentPage({ params }: { params: Promise<{
       // Tunggu sampai semua font (Plus Jakarta Sans) siap di browser
       await document.fonts.ready;
       
-      const { toJpeg } = await import("html-to-image");
-      const jsPDF = (await import("jspdf")).default;
+      await Promise.all([
+        loadScript("https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.js"),
+        loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js")
+      ]);
+      
+      const { toJpeg } = (window as any).htmlToImage;
+      const { jsPDF } = (window as any).jspdf;
       
       // Berikan waktu sejenak agar chart Recharts benar-benar stabil
       await new Promise(resolve => setTimeout(resolve, 1500));

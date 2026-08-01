@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Employee } from "@/types/employee";
 import { useRouter } from "next/navigation";
+import { loadScript } from "@/lib/utils/scriptLoader";
 
 interface AdminDashboardProps {
   employees: Employee[];
@@ -33,7 +34,8 @@ export default function AdminDashboard({ employees: initialEmployees }: AdminDas
   const handleExportCSV = async () => {
     if (filtered.length === 0) return;
     
-    const XLSX = await import("xlsx");
+    await loadScript("https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js");
+    const XLSX = (window as any).XLSX;
 
     const exportData = filtered.map(emp => ({
       "NIK": (emp as any).employee_code || "",

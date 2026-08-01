@@ -8,6 +8,7 @@ import DashboardLayout from "@/components/common/DashboardLayout";
 import Link from "next/link";
 import AssessmentCharts from "@/components/admin/AssessmentCharts";
 import { calculateSDTScores, getSDTProfile } from "@/lib/assessment-utils";
+import { loadScript } from "@/lib/utils/scriptLoader";
 
 const ADMIN_MENU = [
   {
@@ -101,7 +102,8 @@ export default function AssessmentAnalysisPage({ params }: { params: Promise<{ i
 
   const handleExport = async () => {
     if (assessments.length === 0) return;
-    const XLSX = await import("xlsx");
+    await loadScript("https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js");
+    const XLSX = (window as any).XLSX;
 
     // Menyiapkan data untuk Excel
     const data = assessments.map((a: any) => {
