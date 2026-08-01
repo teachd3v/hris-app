@@ -31,7 +31,7 @@ const ADMIN_MENU = [
   }
 ];
 
-export default async function EmployeeDetailPage({ params }: { params: { id: string } }) {
+export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { user, profile: adminProfile } = await requireAdmin();
   const db = getDb();

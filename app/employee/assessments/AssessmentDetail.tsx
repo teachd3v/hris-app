@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getAssessmentDetails, submitAssessment } from "../actions";
+import { getAssessmentDetails, submitAssessment } from "./actions";
 import { Loader2, ArrowRight, CheckCircle2, ChevronLeft, Sparkles, Star, AlertTriangle, Eye, Calendar, Info, Target, ClipboardCheck } from "lucide-react";
 import Link from "next/link";
 import confetti from "canvas-confetti";

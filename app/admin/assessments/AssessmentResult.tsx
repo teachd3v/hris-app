@@ -1,6 +1,6 @@
 "use client";
 
-import { getAssessmentResult } from "../../actions";
+import { getAssessmentResult } from "./actions";
 import { useEffect, useState, use } from "react";
 import { notFound, useRouter } from "next/navigation";
 import { getSession } from "next-auth/react";
