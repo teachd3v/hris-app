@@ -9,8 +9,6 @@ import Link from "next/link";
 import AssessmentCharts from "@/components/admin/AssessmentCharts";
 import AssessmentReportTemplate from "@/components/admin/AssessmentReportTemplate";
 import { calculateSDTScores, getSDTProfile, getScoreGradation } from "@/lib/assessment-utils";
-import jsPDF from "jspdf";
-import { toJpeg } from "html-to-image";
 
 const ADMIN_MENU = [
   {
@@ -53,6 +51,9 @@ export default function IndividualAssessmentPage({ params }: { params: Promise<{
       
       // Tunggu sampai semua font (Plus Jakarta Sans) siap di browser
       await document.fonts.ready;
+      
+      const { toJpeg } = await import("html-to-image");
+      const jsPDF = (await import("jspdf")).default;
       
       // Berikan waktu sejenak agar chart Recharts benar-benar stabil
       await new Promise(resolve => setTimeout(resolve, 1500));
