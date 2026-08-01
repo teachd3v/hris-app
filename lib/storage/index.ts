@@ -26,7 +26,7 @@ export async function uploadToStorage(key: string, buffer: Buffer | ArrayBuffer,
   
   const response = await aws.fetch(url, {
     method: 'PUT',
-    body: buffer,
+    body: buffer as any,
     headers: {
       'Content-Type': contentType
     }
