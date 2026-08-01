@@ -7,7 +7,6 @@ import { getSession } from "next-auth/react";
 import DashboardLayout from "@/components/common/DashboardLayout";
 import Link from "next/link";
 import AssessmentCharts from "@/components/admin/AssessmentCharts";
-import * as XLSX from "xlsx";
 import { calculateSDTScores, getSDTProfile } from "@/lib/assessment-utils";
 
 const ADMIN_MENU = [
@@ -100,8 +99,9 @@ export default function AssessmentAnalysisPage({ params }: { params: Promise<{ i
     { label: "Profil Krisis / Rentan Burnout", icon: "🚨", color: "red" },
   ];
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (assessments.length === 0) return;
+    const XLSX = await import("xlsx");
 
     // Menyiapkan data untuk Excel
     const data = assessments.map((a: any) => {
