@@ -64,10 +64,8 @@ export async function uploadDocument(formData: FormData) {
 
     try {
       await uploadToStorage(fileName, buffer, file.type || 'application/octet-stream')
-      const r2PublicUrl = process.env.R2_PUBLIC_URL || `https://pub-placeholder.r2.dev`
-      
       finalFiles.push({
-        url: `${r2PublicUrl}/${fileName}`,
+        url: `/storage/${fileName}`,
         name: file.name,
         size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
         type: fileExt?.toUpperCase() || 'FILE'

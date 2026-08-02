@@ -246,8 +246,7 @@ export async function uploadAvatar(base64Image: string) {
     throw new Error('Failed to upload avatar')
   }
 
-  const r2PublicUrl = process.env.R2_PUBLIC_URL || `https://pub-placeholder.r2.dev`
-  const publicUrl = `${r2PublicUrl}/${fileName}`
+  const publicUrl = `/storage/${fileName}`
 
   await db.update(schema.employees).set({ photo_url: publicUrl }).where(eq(schema.employees.id, employeeId))
 

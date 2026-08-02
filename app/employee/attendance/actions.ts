@@ -51,13 +51,7 @@ export async function submitAttendance(type: 'in' | 'out', formData: FormData) {
     
     await uploadToStorage(fileName, buffer, 'image/jpeg');
 
-    // Cloudflare R2 public URL format if custom domain or dev domain is configured.
-    // Replace with the actual public URL endpoint for the bucket
-    publicUrl = `https://pub-your-cloudflare-r2-url.r2.dev/${fileName}`; 
-    // Ideally the public R2 domain should come from env, but we'll use a placeholder or relative path
-    // Actually, R2 supports public buckets, so we use a standard public URL from env.
-    const r2PublicUrl = process.env.R2_PUBLIC_URL || `https://pub-placeholder.r2.dev`;
-    publicUrl = `${r2PublicUrl}/${fileName}`;
+    publicUrl = `/storage/${fileName}`;
   }
 
   const today = new Date().toISOString().split('T')[0];
