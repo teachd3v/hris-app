@@ -26,13 +26,13 @@ export default function Topbar({
     const fetchRole = async () => {
       const session = await getSession();
       if (session?.user) {
-        // Since we don't fetch role from DB on client side dynamically right now for performance,
-        // we can just check email. Real app might fetch from an API route.
-        const ADMIN_EMAILS = ['teachgen2025@gmail.com', 'teach.d3v@gmail.com'];
-        const isAdmin = ADMIN_EMAILS.includes(session.user.email ?? '');
+        const empRole = (session as any)?.employee?.role || (session?.user as any)?.role;
+        const ADMIN_EMAILS = ['teachgen2025@gmail.com', 'teach.d3v@gmail.com', 'hudagraph@gmail.com'];
+        const isAdmin = empRole === 'Admin' || ADMIN_EMAILS.includes(session.user.email ?? '') || role === 'Admin';
         
         console.log("Topbar Auth Check:", { 
           email: session.user.email, 
+          empRole,
           isAdmin,
           currentPageRole: role 
         });
