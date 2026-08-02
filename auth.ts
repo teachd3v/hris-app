@@ -43,6 +43,7 @@ export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
         const employeeRecord = await db.select().from(employees).where(eq(employees.email, user.email));
         if (employeeRecord.length > 0) {
           (session as any).employee = employeeRecord[0];
+          (session.user as any).role = employeeRecord[0].role;
         }
       }
       return session;
