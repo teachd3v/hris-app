@@ -5,8 +5,16 @@ import { getDb } from "./lib/db";
 import { users, accounts, sessions, verificationTokens, employees } from "./lib/db/schema";
 import { eq } from "drizzle-orm";
 
-const lazyAdapter = new Proxy({} as any, {
-  get(target, prop) {
+const adapterMethods = [
+  "createUser", "getUser", "getUserByEmail", "getUserByAccount",
+  "updateUser", "deleteUser", "linkAccount", "unlinkAccount",
+  "createSession", "getSessionAndUser", "updateSession", "deleteSession",
+  "createVerificationToken", "useVerificationToken"
+];
+
+const lazyAdapter = {} as any;
+for (const method of adapterMethods) {
+  lazyAdapter[method] = async (...args: any[]) => {
     const db = getDb();
     const adapter = DrizzleAdapter(db, {
       usersTable: users,
@@ -14,17 +22,9 @@ const lazyAdapter = new Proxy({} as any, {
       sessionsTable: sessions,
       verificationTokensTable: verificationTokens,
     });
-    return (adapter as any)[prop];
-  },
-  has(target, prop) {
-    return [
-      "createUser", "getUser", "getUserByEmail", "getUserByAccount",
-      "updateUser", "deleteUser", "linkAccount", "unlinkAccount",
-      "createSession", "getSessionAndUser", "updateSession", "deleteSession",
-      "createVerificationToken", "useVerificationToken"
-    ].includes(prop as string);
-  }
-});
+    return (adapter as any)[method](...args);
+  };
+}
 
 export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
   adapter: lazyAdapter,
