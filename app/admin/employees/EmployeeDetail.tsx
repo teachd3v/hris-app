@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth-guard";
 import DashboardLayout from "@/components/common/DashboardLayout";
 import Link from "next/link";
+import DeleteEmployeeButton from "@/components/admin/DeleteEmployeeButton";
 import ResetPasswordButton from "@/components/admin/ResetPasswordButton";
 import EmployeeProfileTabs from "@/components/admin/EmployeeProfileTabs";
 import { getDb } from '@/lib/db'
@@ -129,6 +130,9 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
             <button className="btn btn-primary btn-sm">Validasi Data</button>
             <button className="btn btn-ghost btn-sm">Cetak Profil (PDF)</button>
             <ResetPasswordButton employeeId={employee.id} employeeName={employee.name || employee.email || "karyawan"} />
+            {employee.id !== adminProfile?.id && (employee.email || employee.institutional_email) && (
+              <DeleteEmployeeButton employeeId={employee.id} employeeName={employee.name || "karyawan"} employeeEmail={(employee.email || employee.institutional_email)!} />
+            )}
           </div>
         </div>
 
