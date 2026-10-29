@@ -7,6 +7,13 @@
 		"nodejs_compat",
 		"global_fetch_strictly_public"
 	],
+	"routes": [
+		{
+			"pattern": "hrteach.site",
+			"zone_name": "hrteach.site",
+			"custom_domain": true
+		}
+	],
 	"assets": {
 		"directory": ".open-next/assets",
 		"binding": "ASSETS"
@@ -15,7 +22,8 @@
 		{
 			"binding": "DB",
 			"database_name": "hris-teachapp-db",
-			"database_id": "c2c0c304-c28c-4e7f-a061-7e6e65789fa1"
+			"database_id": "c2c0c304-c28c-4e7f-a061-7e6e65789fa1",
+			"migrations_dir": "drizzle"
 		}
 	],
 	"services": [

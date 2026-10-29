@@ -2,9 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchAttendanceData, submitAttendance } from './actions';
-import { MapPin, Camera, Clock, CheckCircle, AlertCircle, Loader2, Navigation2 } from 'lucide-react';
+import { MapPin, Camera, Clock, CheckCircle, AlertCircle, Loader2, Navigation2, Smartphone, Lock, ShieldAlert } from 'lucide-react';
 import { getDistanceFromLatLonInKm } from '@/lib/geo';
 import { useRouter } from 'next/navigation';
+
+import DashboardLayout from '@/components/common/DashboardLayout';
+import { EMPLOYEE_MENU } from '@/lib/navigation';
 
 const OFFICE_LAT = -6.4733643;
 const OFFICE_LNG = 106.7274949;
@@ -107,13 +110,11 @@ export default function AttendancePage() {
       
       let stream: MediaStream;
       try {
-        // Try getting user-facing camera first (ideal for mobile selfies)
         stream = await navigator.mediaDevices.getUserMedia({ 
           video: { facingMode: 'user' } 
         });
       } catch (firstErr) {
         console.warn("Failed with facingMode constraint, retrying with generic video constraint...", firstErr);
-        // Fallback to any available camera (works on desktops and basic webcams)
         stream = await navigator.mediaDevices.getUserMedia({ 
           video: true 
         });
@@ -212,14 +213,6 @@ export default function AttendancePage() {
 
   const handleAttendance = async (type: 'in' | 'out') => {
     if (!employee) return;
-    // Uji Coba: Batasan geolocation dinonaktifkan agar bisa dites di mana saja
-    /*
-    if (distance === null || distance > MAX_RADIUS_KM) {
-      alert("Anda berada di luar jangkauan lokasi absen!");
-      return;
-    }
-    */
-
     setIsSubmitting(true);
     try {
       const blob: any = await takePhoto();
@@ -255,49 +248,156 @@ export default function AttendancePage() {
   const hasClockedOut = attendanceToday?.clock_out != null;
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)] flex flex-col items-center py-8 px-4 font-jakarta relative overflow-hidden">
-      {/* Background Ornaments from HRIS TEACH */}
-      <div className="absolute top-0 right-0 w-[40vw] h-[40vw] bg-[var(--red-soft)] rounded-full mix-blend-multiply filter blur-[80px] opacity-40 animate-pulse pointer-events-none"></div>
-      <div className="absolute bottom-0 left-0 w-[40vw] h-[40vw] bg-[var(--yellow-soft)] rounded-full mix-blend-multiply filter blur-[80px] opacity-40 pointer-events-none"></div>
+    <DashboardLayout
+      role="Karyawan"
+      userName={employee?.name || 'Memuat...'}
+      userInitials={employee?.name ? employee.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : 'U'}
+      userPhoto={employee?.photo_url}
+      hideTopbar={true}
+      hideBottomNav={true}
+      noPadding={true}
+      menuSections={EMPLOYEE_MENU}
+    >
+      {/* DESKTOP LOCKED SCREEN (Hidden on Mobile) */}
+      <div className="hidden md:flex flex-col items-center justify-center py-6 px-4 text-center max-w-2xl mx-auto">
+        <div className="bg-white rounded-[32px] shadow-[0_12px_40px_rgba(0,0,0,0.06)] p-8 border border-[var(--line)] w-full flex flex-col items-center relative overflow-hidden">
+          
+          {/* Decorative Background Glow */}
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-red-100/50 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-amber-100/50 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="w-full max-w-md flex flex-col items-center relative z-10">
-        
-        {/* Header Title */}
-        <div className="flex justify-between items-center w-full mb-2">
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--ink)]">Presensi Harian</h1>
-          <button onClick={() => router.back()} className="w-8 h-8 flex justify-center items-center rounded-full bg-white/50 border border-[var(--glass-border)] shadow-sm hover:bg-white transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--ink)]"><path d="m15 18-6-6 6-6"/></svg>
+          {/* Locked Badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-50 border border-rose-200/60 text-rose-600 text-[11px] font-black tracking-wider uppercase mb-6">
+            <Lock size={14} strokeWidth={2.5} />
+            Khusus Perangkat Mobile
+          </div>
+
+          {/* Icon */}
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-rose-50 to-red-100 text-[var(--red)] flex items-center justify-center mb-6 shadow-inner border border-red-200/50">
+            <Smartphone size={40} strokeWidth={2} />
+          </div>
+
+          {/* Title & Subtitle */}
+          <h2 className="text-2xl font-black text-[var(--ink)] tracking-tight mb-2">
+            Presensi Wajib via Mobile / HP
+          </h2>
+          <p className="text-[14px] text-[var(--ink-3)] max-w-md leading-relaxed mb-8">
+            Demi keamanan verifikasi lokasi GPS & swafoto, presensi masuk dan keluar <span className="font-bold text-[var(--ink)]">hanya dapat dilakukan melalui HP / Smartphone</span>.
+          </p>
+
+          {/* Today's Status Box */}
+          <div className="w-full bg-[var(--bg)] rounded-2xl p-4 border border-[var(--line)] mb-8 flex items-center justify-between">
+            <div className="text-left">
+              <span className="text-[10px] font-bold text-[var(--ink-4)] uppercase tracking-wider block mb-0.5">Status Hari Ini</span>
+              <span className="text-[14px] font-bold text-[var(--ink)]">
+                {hasClockedOut 
+                  ? "Selesai (Sudah Clock Out)" 
+                  : hasClockedIn 
+                  ? `Sudah Clock In (${formatTimeStr(attendanceToday?.clock_in)})` 
+                  : "Belum Absen Hari Ini"}
+              </span>
+            </div>
+            {hasClockedIn ? (
+              <span className="px-3 py-1 bg-green-50 text-green-700 font-extrabold text-[12px] rounded-full border border-green-200 flex items-center gap-1">
+                <CheckCircle size={14} /> Terverifikasi
+              </span>
+            ) : (
+              <span className="px-3 py-1 bg-amber-50 text-amber-700 font-extrabold text-[12px] rounded-full border border-amber-200 flex items-center gap-1">
+                <Clock size={14} /> Menunggu Absen
+              </span>
+            )}
+          </div>
+
+          {/* Instruction Steps */}
+          <div className="w-full text-left bg-gradient-to-br from-gray-50 to-slate-50 rounded-2xl p-5 border border-slate-200/60 mb-8">
+            <h3 className="text-[13px] font-black text-[var(--ink)] mb-3 flex items-center gap-2">
+              <ShieldAlert size={16} className="text-[var(--red)]" /> Cara Melakukan Presensi:
+            </h3>
+            <ol className="text-[12px] text-[var(--ink-3)] space-y-2 font-medium">
+              <li className="flex items-start gap-2">
+                <span className="w-5 h-5 rounded-full bg-[var(--red-soft)] text-[var(--red)] font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">1</span>
+                Buka browser di HP Anda lalu kunjungi <strong className="text-[var(--ink)]">teach-hris-app.te4ch.workers.dev</strong>.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="w-5 h-5 rounded-full bg-[var(--red-soft)] text-[var(--red)] font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">2</span>
+                Izinkan akses Kamera & Lokasi (GPS) saat diminta di browser HP.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="w-5 h-5 rounded-full bg-[var(--red-soft)] text-[var(--red)] font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">3</span>
+                Klik tombol <strong>Presensi</strong> di bagian navigasi bawah HP Anda.
+              </li>
+            </ol>
+          </div>
+
+          {/* Back button */}
+          <button
+            onClick={() => router.push('/employee/dashboard')}
+            className="px-6 py-3 rounded-full bg-[var(--ink)] text-white font-bold text-[13px] hover:bg-black transition-all active:scale-95 shadow-md flex items-center gap-2"
+          >
+            Kembali ke Dashboard
           </button>
         </div>
+      </div>
 
-        {/* Employee Info Block */}
-        <div className="flex items-center justify-between w-full mb-6 mt-1 bg-white/80 backdrop-blur-md p-3.5 rounded-[16px] shadow-[0_4px_12px_rgba(0,0,0,0.03)] border border-[var(--glass-border)]">
-          <div className="flex items-center gap-3 w-full">
-             <div className="w-12 h-12 rounded-full bg-[var(--surface-item)] border border-[var(--line)] overflow-hidden shrink-0 flex items-center justify-center font-bold text-lg text-[var(--ink-3)] shadow-inner">
-                {employee?.photo_url ? (
-                   <img src={employee.photo_url} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                   employee?.name?.charAt(0).toUpperCase() || '?'
-                )}
-             </div>
-             <div className="flex-1 min-w-0">
-                <p className="font-bold text-[15px] text-[var(--ink)] truncate">{employee?.name || 'Memuat data...'}</p>
-                <p className="text-[12px] text-[var(--ink-3)] truncate mt-0.5">{employee?.title || 'Karyawan'} • {employee?.dept || '-'}</p>
-             </div>
-          </div>
+      {/* MOBILE CONTAINER (Visible only on Mobile screens < md) */}
+      <div className="w-full min-h-screen md:hidden relative flex flex-col pb-24">
+        
+        {/* Fullscreen Video Background */}
+        <div className="absolute inset-0 w-full h-full overflow-hidden bg-black z-0">
+          <video 
+            ref={videoRef} 
+            autoPlay 
+            playsInline 
+            muted 
+            className={`w-full h-full object-cover transition-opacity duration-500 ${streamActive ? 'opacity-100' : 'opacity-0'}`}
+          />
+          <canvas ref={canvasRef} className="hidden" />
+          
+          {/* Dark gradient overlay so text is readable over camera */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/80 pointer-events-none" />
         </div>
 
-        {!hasClockedOut && (
-          <>
-            <p className="eyebrow mb-6 text-[var(--ink-3)]">
-              {isMounted ? currentTime.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Memuat Tanggal...'}
-            </p>
-
-            <div className="text-[clamp(40px,10vw,64px)] font-black mb-8 tracking-tighter drop-shadow-sm text-transparent bg-clip-text bg-gradient-to-r from-[var(--red)] to-[var(--yellow)]">
-              {isMounted ? currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '00.00.00'}
+        {/* UI Overlay */}
+        <div className="flex flex-col justify-between flex-1 p-6 z-10 h-full">
+          
+          {/* Top Section */}
+          <div>
+            {/* Header Title */}
+            <div className="flex justify-between items-center w-full mb-6 mt-2">
+              <h1 className="text-2xl font-bold tracking-tight text-white drop-shadow-md">Presensi Harian</h1>
+              <button onClick={() => router.back()} className="w-8 h-8 flex justify-center items-center rounded-full bg-white/20 backdrop-blur-md border border-white/30 shadow-sm hover:bg-white/30 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
             </div>
-          </>
-        )}
+
+            {/* Employee Info Block */}
+            <div className="flex items-center gap-3 w-full bg-black/40 backdrop-blur-md p-3.5 rounded-[16px] shadow-lg border border-white/20">
+               <div className="w-12 h-12 rounded-full bg-white/10 overflow-hidden shrink-0 flex items-center justify-center font-bold text-lg text-white shadow-inner">
+                  {employee?.photo_url ? (
+                     <img src={employee.photo_url} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                     employee?.name?.charAt(0).toUpperCase() || '?'
+                  )}
+               </div>
+               <div className="flex-1 min-w-0">
+                  <p className="font-bold text-[15px] text-white truncate">{employee?.name || 'Memuat data...'}</p>
+                  <p className="text-[12px] text-white/70 truncate mt-0.5">{employee?.title || 'Karyawan'} • {employee?.dept || '-'}</p>
+               </div>
+            </div>
+          </div>
+
+          {/* Center Section (Time & Status) */}
+          <div className="flex flex-col items-center justify-center flex-1 my-6 relative">
+            {!hasClockedOut && !justClockedIn && !isLoading && (
+              <div className="text-center animate-in fade-in zoom-in-95 duration-500">
+                <p className="text-white/80 font-bold mb-1 drop-shadow-md uppercase tracking-widest text-[11px]">
+                  {isMounted ? currentTime.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Memuat Tanggal...'}
+                </p>
+                <div className="text-[56px] font-black tracking-tighter text-white drop-shadow-2xl leading-none">
+                  {isMounted ? currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '00.00.00'}
+                </div>
+              </div>
+            )}
 
         {/* Camera Viewfinder / Summary Dashboard */}
         {isLoading ? (
@@ -417,94 +517,97 @@ export default function AttendancePage() {
           </div>
         ) : (
           <>
-            {/* Camera Viewfinder */}
-            <div className="w-full aspect-[3/4] max-h-[420px] glass rounded-[var(--radius-hris-xl)] overflow-hidden relative mb-6 shadow-xl border border-[var(--glass-border)] animate-in fade-in duration-300">
-              {!streamActive && (
-                cameraError ? (
-                  <div className="absolute inset-0 flex items-center justify-center bg-white/95 backdrop-blur-sm text-[var(--ink-3)] flex-col p-6 text-center animate-in fade-in duration-300">
-                    <AlertCircle className="text-[var(--red)] mb-3" size={48} />
-                    <span className="text-[16px] font-bold text-[var(--ink)]">Akses Kamera Gagal</span>
-                    <span className="text-[12px] text-[var(--ink-3)] mt-2 mb-6 px-4">
+            {/* Error or Loading overlays for camera */}
+            {!streamActive && !hasClockedOut && !justClockedIn && (
+              cameraError ? (
+                <div className="absolute inset-0 flex items-center justify-center flex-col text-center z-20">
+                  <div className="bg-black/60 backdrop-blur-md p-6 rounded-[24px] border border-red-500/30">
+                    <AlertCircle className="text-[var(--red)] mb-3 mx-auto" size={48} />
+                    <span className="text-[16px] font-bold text-white block">Akses Kamera Gagal</span>
+                    <span className="text-[12px] text-white/70 mt-2 mb-6 px-4 block">
                       {cameraError}
                     </span>
                     <button 
                       onClick={() => startCamera()} 
-                      className="px-6 py-2.5 rounded-full bg-[var(--ink)] text-white font-bold text-[13px] hover:bg-black transition-all active:scale-95 shadow-md"
+                      className="px-6 py-2.5 rounded-full bg-[var(--red)] text-white font-bold text-[13px] hover:bg-red-700 transition-all active:scale-95 shadow-md"
                     >
                       Coba Lagi
                     </button>
                   </div>
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm text-[var(--ink-3)] flex-col p-6 text-center">
-                    <Loader2 className="animate-spin text-[var(--red)] mb-3" size={36} />
-                    <span className="text-[15px] font-bold text-[var(--ink)]">Mempersiapkan Presensi</span>
-                    <span className="text-[12px] text-[var(--ink-3)] mt-1">Mengakses kamera & memvalidasi GPS...</span>
-                  </div>
-                )
-              )}
-              <video 
-                ref={videoRef} 
-                autoPlay 
-                playsInline 
-                muted 
-                className={`w-full h-full object-cover transition-opacity duration-500 ${streamActive ? 'opacity-100' : 'opacity-0'}`}
-              />
-              <canvas ref={canvasRef} className="hidden" />
-
-              {/* Location Overlay */}
-              <div className="absolute bottom-4 left-4 right-4 glass-strong backdrop-blur-md p-3 rounded-[var(--radius-hris)] text-[13px] flex items-center gap-3 border border-[var(--glass-border)]">
-                {locationError ? (
-                  <AlertCircle className="text-[var(--red)] shrink-0" size={20} />
-                ) : isLocationValid ? (
-                  <CheckCircle className="text-[var(--green)] shrink-0" size={20} />
-                ) : (
-                  <Navigation2 className="text-[var(--yellow)] shrink-0" size={20} />
-                )}
-                
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate text-[var(--ink)] flex items-center gap-1.5">
-                    {locationError ? 'Gagal mendapatkan lokasi' : 'Lokasi Terdeteksi'}
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[var(--yellow-soft)] text-[var(--yellow)] border border-[var(--yellow)]/20 uppercase shrink-0">
-                      Uji Coba
-                    </span>
-                  </p>
-                  <p className={`truncate text-[12px] mt-0.5 ${isLocationValid ? 'text-[var(--green)]' : 'text-[var(--ink-3)]'}`}>
-                    {locationError ? (
-                      'GPS tidak aktif/error • Tetap bisa absen'
-                    ) : distance === null ? (
-                      'Menghitung jarak...' 
-                    ) : isLocationValid ? (
-                      `Dalam radius kantor (${(distance * 1000).toFixed(0)}m)` 
-                    ) : (
-                      `Luar radius (${(distance * 1000).toFixed(0)}m) • Tetap bisa absen`
-                    )}
-                  </p>
                 </div>
-              </div>
-            </div>
-
-            {/* Action Button */}
-            <button
-              disabled={isSubmitting}
-              onClick={() => handleAttendance(hasClockedIn ? 'out' : 'in')}
-              className={`
-                w-full h-14 rounded-full font-bold text-[15px] transition-all duration-300 transform active:scale-95 shadow-md flex justify-center items-center gap-2 mb-6
-                ${isSubmitting
-                  ? 'bg-[var(--surface-item)] text-[var(--ink-4)] cursor-wait border border-[var(--glass-border)]'
-                  : 'btn-primary'
-                }
-              `}
-            >
-              {isSubmitting ? (
-                <Loader2 className="animate-spin text-white" />
-              ) : hasClockedIn ? (
-                <>Clock Out Sekarang <Clock size={18} /></>
               ) : (
-                <>Clock In Sekarang <MapPin size={18} /></>
-              )}
-            </button>
+                <div className="absolute inset-0 flex items-center justify-center flex-col text-center z-20">
+                  <div className="bg-black/40 backdrop-blur-md p-6 rounded-[24px] border border-white/10">
+                    <Loader2 className="animate-spin text-white mb-3 mx-auto" size={36} />
+                    <span className="text-[15px] font-bold text-white block">Mempersiapkan Presensi</span>
+                    <span className="text-[12px] text-white/70 mt-1 block">Mengakses kamera & GPS...</span>
+                  </div>
+                </div>
+              )
+            )}
           </>
         )}
+      </div>
+
+          {/* Bottom Section (Location & Button) */}
+          <div className="flex flex-col gap-4 mt-auto">
+             {!hasClockedOut && !justClockedIn && (
+               <>
+                 {/* Location Overlay */}
+                 <div className="bg-black/50 backdrop-blur-md p-3.5 rounded-[16px] text-[13px] flex items-center gap-3 border border-white/20 shadow-lg animate-in slide-in-from-bottom-8">
+                   {locationError ? (
+                     <AlertCircle className="text-[var(--red)] shrink-0" size={24} />
+                   ) : isLocationValid ? (
+                     <CheckCircle className="text-[var(--green)] shrink-0" size={24} />
+                   ) : (
+                     <Navigation2 className="text-[var(--yellow)] shrink-0" size={24} />
+                   )}
+                   
+                   <div className="flex-1 min-w-0">
+                     <p className="font-semibold truncate text-white flex items-center gap-1.5">
+                       {locationError ? 'Gagal mendapatkan lokasi' : 'Lokasi Terdeteksi'}
+                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[var(--yellow)] text-black uppercase shrink-0">
+                         Uji Coba
+                       </span>
+                     </p>
+                     <p className={`truncate text-[12px] mt-0.5 font-medium ${isLocationValid ? 'text-[var(--green)]' : 'text-white/70'}`}>
+                       {locationError ? (
+                         'GPS tidak aktif/error • Tetap bisa absen'
+                       ) : distance === null ? (
+                         'Menghitung jarak...' 
+                       ) : isLocationValid ? (
+                         `Dalam radius kantor (${(distance * 1000).toFixed(0)}m)` 
+                       ) : (
+                         `Luar radius (${(distance * 1000).toFixed(0)}m) • Tetap bisa absen`
+                       )}
+                     </p>
+                   </div>
+                 </div>
+
+                 {/* Action Button */}
+                 <button
+                   disabled={isSubmitting}
+                   onClick={() => handleAttendance(hasClockedIn ? 'out' : 'in')}
+                   className={`
+                     w-full h-14 rounded-full font-bold text-[16px] transition-all duration-300 transform active:scale-95 shadow-xl flex justify-center items-center gap-2
+                     ${isSubmitting
+                       ? 'bg-white/20 text-white/50 cursor-wait border border-white/10 backdrop-blur-md'
+                       : 'bg-[var(--red)] text-white hover:bg-red-700'
+                     }
+                   `}
+                 >
+                   {isSubmitting ? (
+                     <Loader2 className="animate-spin text-white" />
+                   ) : hasClockedIn ? (
+                     <>Clock Out Sekarang <Clock size={20} strokeWidth={2.5} /></>
+                   ) : (
+                     <>Clock In Sekarang <MapPin size={20} strokeWidth={2.5} /></>
+                   )}
+                 </button>
+               </>
+             )}
+          </div>
+        </div>
 
       </div>
 
@@ -549,6 +652,6 @@ export default function AttendancePage() {
           </div>
         </div>
       )}
-    </div>
+    </DashboardLayout>
   );
 }

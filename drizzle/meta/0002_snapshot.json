@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "131f963b-484c-4e99-9d30-b5c52085210b",
+  "id": "7e87ed04-391f-49cc-a4e6-2ea8ffab3ad9",
   "prevId": "0133de71-adbd-4e94-849c-8bcc4cb04356",
   "tables": {
     "account": {
@@ -655,52 +655,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "employee_credentials": {
-      "name": "employee_credentials",
-      "columns": {
-        "employee_id": {
-          "name": "employee_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "password_hash": {
-          "name": "password_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "password_changed_at": {
-          "name": "password_changed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "failed_attempts": {
-          "name": "failed_attempts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "locked_until": {
-          "name": "locked_until",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "employee_documents": {
       "name": "employee_documents",
       "columns": {
@@ -814,6 +768,13 @@
         },
         "email": {
           "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "institutional_email": {
+          "name": "institutional_email",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -1018,6 +979,20 @@
         "role": {
           "name": "role",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "approval_status": {
+          "name": "approval_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "profile_completed": {
+          "name": "profile_completed",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
