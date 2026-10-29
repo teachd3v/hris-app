@@ -4,7 +4,7 @@ import { getDb } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
-const ADMIN_EMAILS = ['teachgen2025@gmail.com', 'teach.d3v@gmail.com']
+export const ADMIN_EMAILS = ['teachgen2025@gmail.com', 'teach.d3v@gmail.com']
 
 export async function requireAdmin() {
   const session = await auth()

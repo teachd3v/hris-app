@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth-guard";
 import DashboardLayout from "@/components/common/DashboardLayout";
 import Link from "next/link";
+import ResetPasswordButton from "@/components/admin/ResetPasswordButton";
 import EmployeeProfileTabs from "@/components/admin/EmployeeProfileTabs";
 import { getDb } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
@@ -127,6 +128,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           <div className="flex flex-col gap-2 shrink-0 md:pt-2">
             <button className="btn btn-primary btn-sm">Validasi Data</button>
             <button className="btn btn-ghost btn-sm">Cetak Profil (PDF)</button>
+            <ResetPasswordButton employeeId={employee.id} employeeName={employee.name || employee.email || "karyawan"} />
           </div>
         </div>
 

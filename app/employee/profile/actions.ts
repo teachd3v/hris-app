@@ -19,7 +19,6 @@ export async function updateEmployeeProfile(section: string, updates: any) {
   try {
     if (section === 'personal') {
       await db.update(schema.employees).set({
-        email: updates.email,
         phone: updates.phone,
         nik: updates.nik,
         birth_date: updates.birth || null,

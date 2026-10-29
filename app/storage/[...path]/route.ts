@@ -1,36 +1,46 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { auth } from "@/auth";
+import { ADMIN_EMAILS } from "@/lib/auth-guard";
 
-export async function GET(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
+// Prefix bucket yang boleh disajikan. Format key: <prefix>/<employeeId>/<file>
+const ALLOWED_PREFIXES = new Set(["avatars", "documents", "attendances", "leave_attachments"]);
+// Foto profil terlihat oleh semua pengguna login (katalog karyawan); sisanya hanya pemilik & admin.
+const SHARED_PREFIXES = new Set(["avatars"]);
+const INLINE_TYPES = /^(image\/(jpeg|png|webp|gif)|application\/pdf)$/;
+
+export async function GET(_request: Request, { params }: { params: Promise<{ path: string[] }> }) {
+  const session = await auth();
+  const me = (session as any)?.employee as { id: string; role: string | null } | undefined;
+  if (!session?.user?.email || !me) return new Response("Unauthorized", { status: 401 });
+
   const { path } = await params;
-  const key = path.join("/");
-  
-  try {
-    const { env } = getCloudflareContext() as any;
-    if (env?.STORAGE) {
-      const object = await env.STORAGE.get(key);
-      if (object) {
-        const headers = new Headers();
-        object.writeHttpMetadata(headers);
-        headers.set("etag", object.httpEtag);
-        headers.set("cache-control", "public, max-age=31536000, immutable");
-        return new Response(object.body, { headers });
-      }
-    }
-  } catch (e) {
-    console.error("Storage R2 binding error:", e);
+  const segments = path.map((s) => decodeURIComponent(s));
+  if (segments.length < 3 || segments.some((s) => !s || s === "." || s === ".." || s.includes("\\"))) {
+    return new Response("Not found", { status: 404 });
+  }
+  const [prefix, ownerId] = segments;
+  if (!ALLOWED_PREFIXES.has(prefix)) return new Response("Not found", { status: 404 });
+
+  const isAdmin = me.role === "Admin" || ADMIN_EMAILS.includes(session.user.email);
+  if (!SHARED_PREFIXES.has(prefix) && !isAdmin && ownerId !== me.id) {
+    return new Response("Forbidden", { status: 403 });
   }
 
-  // Fallback to fetching R2 public URL if binding fails
-  const r2PublicUrl = process.env.R2_PUBLIC_URL || "https://pub-2d729e2730464d84a7536597000e628a.r2.dev";
-  const fallbackRes = await fetch(`${r2PublicUrl}/${key}`);
-  if (fallbackRes.ok) {
-    return new Response(fallbackRes.body, {
-      headers: {
-        "content-type": fallbackRes.headers.get("content-type") || "image/jpeg",
-        "cache-control": "public, max-age=31536000, immutable",
-      },
-    });
-  }
+  const { env } = getCloudflareContext() as any;
+  const object = await env?.STORAGE?.get(segments.join("/"));
+  if (!object) return new Response("Not found", { status: 404 });
 
-  return new Response("Not found", { status: 404 });
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  const type = headers.get("content-type") ?? "application/octet-stream";
+  headers.set("etag", object.httpEtag);
+  headers.set("cache-control", "private, max-age=3600");
+  headers.set("x-content-type-options", "nosniff");
+  // Cegah konten aktif (HTML/SVG dsb.) dieksekusi dari origin aplikasi
+  headers.set("content-security-policy", "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'");
+  if (!INLINE_TYPES.test(type)) {
+    headers.set("content-type", "application/octet-stream");
+    headers.set("content-disposition", "attachment");
+  }
+  return new Response(object.body, { headers });
 }

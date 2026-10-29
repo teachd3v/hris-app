@@ -13,6 +13,7 @@ import {
 import { dummyUserProfile } from "@/lib/dummy-data";
 import DashboardLayout from "@/components/common/DashboardLayout";
 import EditSectionModals, { type EditSectionKey } from "@/components/profile-edit/EditSectionModals";
+import ChangePasswordModal from "@/components/profile-edit/ChangePasswordModal";
 import AvatarUploadModal from "@/components/profile-edit/AvatarUploadModal";
 import Link from "next/link";
 
@@ -115,6 +116,7 @@ export default function UserDashboard({ initialData }: { initialData: typeof dum
   const [activeTab, setActiveTab] = useState<TabKey>("personal");
   const [editingSection, setEditingSection] = useState<EditSectionKey | null>(null);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   const handleSaveData = async (updates: Partial<typeof dummyUserProfile>) => {
     // Optimistic UI update
@@ -190,6 +192,7 @@ export default function UserDashboard({ initialData }: { initialData: typeof dum
               <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold backdrop-blur-sm border border-white/20">{data.status}</span>
               <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold backdrop-blur-sm border border-white/20">{data.level}</span>
             </div>
+            <button type="button" onClick={() => setIsPasswordModalOpen(true)} className="md:hidden mt-3 bg-white/20 px-4 py-1.5 rounded-full text-[11px] font-bold border border-white/20">Ubah Password</button>
           </div>
         </div>
 
@@ -602,6 +605,8 @@ export default function UserDashboard({ initialData }: { initialData: typeof dum
         </div>
       </div>
       </div>
+
+      <ChangePasswordModal open={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} />
 
       <AvatarUploadModal
         open={isAvatarModalOpen}

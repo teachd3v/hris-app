@@ -230,6 +230,15 @@ export const work_experiences = sqliteTable("work_experiences", {
 });
 
 
+export const employee_credentials = sqliteTable("employee_credentials", {
+  employee_id: text("employee_id").primaryKey(),
+  // null = belum pernah diubah, berlaku password default
+  password_hash: text("password_hash"),
+  password_changed_at: text("password_changed_at"),
+  failed_attempts: integer("failed_attempts").notNull().default(0),
+  locked_until: text("locked_until"),
+});
+
 export const users = sqliteTable('user', {
   id: text('id').primaryKey(),
   name: text('name'),

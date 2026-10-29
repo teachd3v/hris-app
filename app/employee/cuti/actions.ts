@@ -139,8 +139,7 @@ export async function createLeaveRequest(formData: FormData) {
 
     try {
       await uploadToStorage(fileName, buffer, file.type || 'application/octet-stream')
-      const r2PublicUrl = process.env.R2_PUBLIC_URL || `https://pub-placeholder.r2.dev`
-      attachmentUrl = `${r2PublicUrl}/${fileName}`
+      attachmentUrl = `/storage/${fileName}`
     } catch (uploadError) {
       console.error('Error uploading attachment:', uploadError)
       throw new Error('Gagal mengunggah berkas lampiran')
