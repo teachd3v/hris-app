@@ -15,6 +15,13 @@
       "when": 1785545280264,
       "tag": "0001_acoustic_silver_fox",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793246610523,
+      "tag": "0002_employee_credentials",
+      "breakpoints": true
     }
   ]
 }

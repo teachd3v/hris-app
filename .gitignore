@@ -108,3 +108,7 @@ supabase-backup/
 .wrangler
 .dev.vars*
 !.dev.vars.example
+
+# local logs / backups
+tail*.log
+*.bak
