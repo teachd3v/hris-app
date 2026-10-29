@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, X } from "lucide-react";
+import ModalPortal from "@/components/common/ModalPortal";
 
 interface Props {
   open: boolean;
@@ -24,6 +25,7 @@ export default function DeleteConfirmModal({
   if (!open) return null;
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="glass w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 shadow-2xl border-red-200/50">
         <div className="p-6">
@@ -68,5 +70,6 @@ export default function DeleteConfirmModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }
