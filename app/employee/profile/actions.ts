@@ -2,7 +2,8 @@
 
 import { auth } from '@/auth'
 import { getDb } from '@/lib/db'
-import { BUCKET_NAME, uploadToStorage } from '@/lib/storage'
+import { uploadToStorage } from '@/lib/storage'
+import { validateUpload, IMAGE_KINDS, MB } from '@/lib/upload'
 import { eq, or, sql } from 'drizzle-orm'
 import * as schema from '@/lib/db/schema'
 import { revalidatePath } from 'next/cache'
@@ -253,14 +254,16 @@ export async function uploadAvatar(base64Image: string) {
   if (empRecords.length === 0) throw new Error('Employee not found')
   const employeeId = empRecords[0].id
 
-  // Convert base64 to Blob
+  // Decode base64 lalu validasi tipe sebenarnya & ukuran
   const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, '')
-  const buffer = Buffer.from(base64Data, 'base64')
-  
-  const fileName = `avatars/${employeeId}/avatar-${Date.now()}.jpg`
+  const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0))
+  const v = await validateUpload(new Blob([bytes]), { maxBytes: 3 * MB, kinds: IMAGE_KINDS, name: 'Foto profil' })
+  if (!v.ok) throw new Error(v.error)
+
+  const fileName = `avatars/${employeeId}/avatar-${Date.now()}.${v.ext}`
 
   try {
-    await uploadToStorage(fileName, buffer, 'image/jpeg')
+    await uploadToStorage(fileName, v.buffer, v.contentType)
   } catch (error) {
     console.error('Error uploading avatar:', error)
     throw new Error('Failed to upload avatar')

@@ -26,27 +26,18 @@ import {
   getLeaveRequests, 
   getEmployeeLeaveInfo, 
   getTeamApprovedLeaves, 
+  getManagerApprovals,
+  approveByManager,
   createLeaveRequest, 
   cancelLeaveRequest, 
   type LeaveRequest, 
   type LeaveCategory 
 } from './actions';
+import { LEAVE_TYPES, calculateLeaveDuration } from '@/lib/leave';
+import ApprovalList from '@/components/cuti/ApprovalList';
 
 import { EMPLOYEE_MENU } from "@/lib/navigation";
 
-const LEAVE_TYPES: { key: LeaveCategory; label: string; desc: string; requiresAttachment?: boolean }[] = [
-  { key: 'Cuti Tahunan', label: 'Cuti Tahunan (12 Hari/Thn)', desc: 'Mengurangi jatah cuti tahunan reguler.' },
-  { key: 'Cuti Ayah', label: 'Cuti Ayah (5 Hari)', desc: 'Khusus karyawan laki-laki untuk kelahiran anak.' },
-  { key: 'Cuti Berkabung', label: 'Cuti Berkabung (2 Hari)', desc: 'Untuk duka cita keluarga inti wafat.' },
-  { key: 'Cuti Melahirkan', label: 'Cuti Melahirkan (3 Bulan)', desc: 'Khusus karyawan perempuan.' },
-  { key: 'Cuti Pernikahan', label: 'Cuti Pernikahan (3 Hari)', desc: 'Untuk hari pernikahan karyawan.' },
-  { key: 'Cuti Unpaid', label: 'Cuti Diluar Tanggungan (Unpaid)', desc: 'Tidak memotong kuota tahunan, gaji dipotong.' },
-  { key: 'Sakit', label: 'Izin Sakit', desc: 'Memerlukan surat keterangan dokter.', requiresAttachment: true },
-  { key: 'Ganti Hari', label: 'Ganti Hari', desc: 'Mengambil kompensasi dari masuk di hari libur.' },
-  { key: 'Izin Terlambat', label: 'Izin Keterlambatan masuk', desc: 'Memerlukan detail jam estimasi kehadiran.' },
-  { key: 'Izin Pulang Cepat', label: 'Izin Pulang Cepat', desc: 'Memerlukan detail jam estimasi pulang.' },
-  { key: 'Dinas Luar Kota', label: 'Dinas Luar Kota / SPD', desc: 'Perjalanan dinas resmi luar kota.' }
-];
 
 export default function LeavePage() {
   const router = useRouter();
@@ -55,6 +46,7 @@ export default function LeavePage() {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [employeeInfo, setEmployeeInfo] = useState<any>(null);
   const [teamLeaves, setTeamLeaves] = useState<LeaveRequest[]>([]);
+  const [managerApprovals, setManagerApprovals] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -83,6 +75,8 @@ export default function LeavePage() {
 
       const team = await getTeamApprovedLeaves();
       setTeamLeaves(team);
+
+      setManagerApprovals(await getManagerApprovals());
     } catch (err: any) {
       console.error(err);
     } finally {
@@ -94,42 +88,13 @@ export default function LeavePage() {
     fetchData();
   }, [fetchData]);
 
-  // Business Days Calculator
-  const calculateDuration = useCallback((type: LeaveCategory, start: string, end: string) => {
-    if (!start || !end) return 0;
-    const sDate = new Date(start);
-    const eDate = new Date(end);
-    if (isNaN(sDate.getTime()) || isNaN(eDate.getTime()) || sDate > eDate) return 0;
-
-    // Untuk Izin Terlambat / Pulang Cepat
-    if (type === 'Izin Terlambat' || type === 'Izin Pulang Cepat') {
-      return 1;
-    }
-
-    // Untuk Cuti Melahirkan (Dihitung Hari Kalender karena berdurasi bulanan)
-    if (type === 'Cuti Melahirkan') {
-      const timeDiff = eDate.getTime() - sDate.getTime();
-      return Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
-    }
-
-    // Default: Hitung Hari Kerja (Senin - Jumat)
-    let workingDays = 0;
-    const current = new Date(sDate);
-    while (current <= eDate) {
-      const day = current.getDay();
-      if (day !== 0 && day !== 6) { // Bukan Minggu (0) dan Sabtu (6)
-        workingDays++;
-      }
-      current.setDate(current.getDate() + 1);
-    }
-    return workingDays;
-  }, []);
+  const calculateDuration = calculateLeaveDuration;
 
   // Update duration whenever date ranges change
   useEffect(() => {
     const days = calculateDuration(selectedType, startDate, endDate);
     setDurationDays(days);
-  }, [selectedType, startDate, endDate, calculateDuration]);
+  }, [selectedType, startDate, endDate]);
 
   // Handle new submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -157,13 +122,10 @@ export default function LeavePage() {
       return;
     }
 
-    // Validasi Kuota
-    if (selectedType === 'Cuti Tahunan' && durationDays > employeeInfo?.leave_available) {
-      setFormError(`Kuota Cuti Tahunan Anda tidak mencukupi (Tersisa ${employeeInfo?.leave_available} Hari).`);
-      return;
-    }
-    if (selectedType === 'Ganti Hari' && durationDays > employeeInfo?.leave_ganti_hari) {
-      setFormError(`Kuota Ganti Hari Anda tidak mencukupi (Tersisa ${employeeInfo?.leave_ganti_hari} Hari).`);
+    // Validasi Kuota (server tetap memvalidasi ulang)
+    const bal = employeeInfo?.balances?.find((b: any) => b.type === selectedType);
+    if (bal && bal.remaining !== null && durationDays > bal.remaining) {
+      setFormError(`Kuota ${selectedType} Anda tidak mencukupi (Tersisa ${Math.max(bal.remaining, 0)} Hari).`);
       return;
     }
 
@@ -192,7 +154,11 @@ export default function LeavePage() {
       if (endTime) formData.append('end_time', endTime);
       if (attachment) formData.append('attachment', attachment);
 
-      await createLeaveRequest(formData);
+      const res = await createLeaveRequest(formData);
+      if (res?.error) {
+        setFormError(res.error);
+        return;
+      }
       
       // Reset Form & Close
       setSelectedType('Cuti Tahunan');
@@ -218,7 +184,8 @@ export default function LeavePage() {
     if (!confirm('Apakah Anda yakin ingin membatalkan pengajuan cuti ini?')) return;
     setCancellingId(id);
     try {
-      await cancelLeaveRequest(id);
+      const res = await cancelLeaveRequest(id);
+      if (res?.error) alert(res.error);
       await fetchData();
     } catch (err: any) {
       alert(err.message || 'Gagal membatalkan pengajuan.');
@@ -357,6 +324,37 @@ export default function LeavePage() {
             </div>
           </div>
 
+          {/* Jatah per jenis */}
+          {employeeInfo?.balances?.some((b: any) => b.quota !== null) && (
+            <div className="bg-white rounded-[24px] border border-[var(--line)] p-5">
+              <h3 className="text-[13px] font-black text-ink mb-3">Jatah Cuti Anda ({new Date().getFullYear()})</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {employeeInfo.balances.filter((b: any) => b.quota !== null).map((b: any) => (
+                  <div key={b.type} className="rounded-xl border border-line-2 p-3">
+                    <p className="text-[10px] font-bold text-ink-3 uppercase tracking-wider">{b.type}</p>
+                    <p className="text-[18px] font-black text-ink mt-1">{Math.max(b.remaining, 0)}<span className="text-[11px] font-bold text-ink-3"> / {b.quota} hari</span></p>
+                    {b.pending > 0 && <p className="text-[10px] text-orange-600 font-bold mt-0.5">{b.pending} hari menunggu</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Persetujuan bawahan (khusus atasan) */}
+          {managerApprovals.length > 0 && (
+            <div className="bg-white rounded-[24px] border border-orange-200 p-5">
+              <h3 className="text-[14px] font-black text-ink mb-3">Persetujuan Bawahan ({managerApprovals.length})</h3>
+              <ApprovalList
+                requests={managerApprovals}
+                onDecide={async (id, approve, notes) => {
+                  const res = await approveByManager(id, approve, notes);
+                  if (!res.error) await fetchData();
+                  return res;
+                }}
+              />
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left/Middle Content: Leave Request History */}
             <div className="lg:col-span-2 space-y-6">
@@ -410,7 +408,7 @@ export default function LeavePage() {
                           )}
                         </div>
 
-                        {req.status === 'PENDING_DIRECT_MANAGER' && (
+                        {(req.status === 'PENDING_DIRECT_MANAGER' || req.status === 'PENDING_HC_ADMIN') && (
                           <button
                             disabled={cancellingId === req.id}
                             onClick={() => handleCancel(req.id)}
@@ -524,7 +522,13 @@ export default function LeavePage() {
                   className="w-full h-12 px-4 rounded-2xl bg-white border border-line-2 text-[13px] font-semibold text-ink focus:outline-none focus:border-ink transition-colors shadow-sm"
                 >
                   {LEAVE_TYPES.map((type) => (
-                    <option key={type.key} value={type.key}>{type.label}</option>
+                    <option key={type.key} value={type.key}>
+                      {type.label}
+                      {(() => {
+                        const b = employeeInfo?.balances?.find((x: any) => x.type === type.key);
+                        return b && b.remaining !== null ? ` — sisa ${Math.max(b.remaining, 0)} hari` : '';
+                      })()}
+                    </option>
                   ))}
                 </select>
                 <p className="text-[10px] text-ink-3 mt-1 font-medium italic">
@@ -605,7 +609,7 @@ export default function LeavePage() {
                   <label className="text-[11px] font-bold text-ink-2 uppercase tracking-wider">Lampiran Dokumen (Surat Dokter)*</label>
                   <input
                     type="file"
-                    accept="image/*,application/pdf"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
                     required
                     onChange={(e) => {
                       const files = e.target.files;
@@ -616,7 +620,7 @@ export default function LeavePage() {
                     }}
                     className="w-full px-4 py-2.5 rounded-2xl bg-white border border-line-2 text-[11px] font-bold text-ink-3 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-[11px] file:font-black file:bg-ink file:text-white hover:file:bg-black file:cursor-pointer shadow-sm"
                   />
-                  <p className="text-[10px] text-ink-4 mt-1 font-medium">Format berkas: JPG, PNG, atau PDF (Maks. 2MB)</p>
+                  <p className="text-[10px] text-ink-4 mt-1 font-medium">Format berkas: JPG, PNG, WEBP, atau PDF (Maks. 5MB)</p>
                 </div>
               )}
 

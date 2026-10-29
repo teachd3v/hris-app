@@ -133,7 +133,8 @@ export async function deleteEmployee(
 
     await db.batch([
       ...byEmployee,
-      db.delete(schema.employee_credentials).where(eq(schema.employee_credentials.employee_id, employeeId)),
+    db.delete(schema.leave_quotas).where(eq(schema.leave_quotas.employee_id, employeeId)),
+    db.delete(schema.employee_credentials).where(eq(schema.employee_credentials.employee_id, employeeId)),
       // Bawahan yang atasannya dihapus tidak lagi punya atasan
       db.update(schema.employees).set({ manager_id: null }).where(eq(schema.employees.manager_id, employeeId)),
       db.delete(schema.employees).where(eq(schema.employees.id, employeeId)),

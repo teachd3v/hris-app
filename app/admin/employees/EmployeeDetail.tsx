@@ -12,26 +12,7 @@ import { eq, desc } from 'drizzle-orm'
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const ADMIN_MENU = [
-  {
-    label: "Manajemen",
-    items: [
-      { icon: "👥", label: "Karyawan", href: "/admin/employees" },
-      { icon: "📊", label: "Asesmen", href: "/admin/assessments" },
-      { icon: "🏠", label: "Dasbor", href: "/admin/dashboard", isComingSoon: true },
-      { icon: "⏰", label: "Presensi", href: "/admin/attendance", isComingSoon: true },
-      { icon: "📅", label: "Pengajuan Cuti", href: "/admin/leave-requests", isComingSoon: true },
-      { icon: "💰", label: "Payroll", href: "/admin/payroll", isComingSoon: true },
-    ]
-  },
-  {
-    label: "Lainnya",
-    items: [
-      { icon: "📈", label: "Laporan", href: "/admin/reports", isComingSoon: true },
-      { icon: "⚙️", label: "Pengaturan", href: "/admin/settings", isComingSoon: true },
-    ]
-  }
-];
+import { ADMIN_MENU } from "@/lib/navigation";
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -11,26 +11,7 @@ import AssessmentReportTemplate from "@/components/admin/AssessmentReportTemplat
 import { calculateSDTScores, getSDTProfile, getScoreGradation } from "@/lib/assessment-utils";
 import { loadScript } from "@/lib/utils/scriptLoader";
 
-const ADMIN_MENU = [
-  {
-    label: "Manajemen",
-    items: [
-      { icon: "👥", label: "Karyawan", href: "/admin/employees" },
-      { icon: "📊", label: "Asesmen", href: "/admin/assessments" },
-      { icon: "🏠", label: "Dasbor", href: "/admin/dashboard", isComingSoon: true },
-      { icon: "⏰", label: "Presensi", href: "/admin/attendance", isComingSoon: true },
-      { icon: "📅", label: "Pengajuan Cuti", href: "/admin/leave-requests", isComingSoon: true },
-      { icon: "💰", label: "Payroll", href: "/admin/payroll", isComingSoon: true },
-    ]
-  },
-  {
-    label: "Lainnya",
-    items: [
-      { icon: "📈", label: "Laporan", href: "/admin/reports", isComingSoon: true },
-      { icon: "⚙️", label: "Pengaturan", href: "/admin/settings", isComingSoon: true },
-    ]
-  }
-];
+import { ADMIN_MENU } from "@/lib/navigation";
 
 export default function IndividualAssessmentPage({ params }: { params: Promise<{ id: string, resultId: string }> }) {
   const { id, resultId } = use(params);

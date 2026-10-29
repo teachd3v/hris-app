@@ -59,11 +59,28 @@ export async function requireApprovedUser() {
   return { user, profile: emp }
 }
 
-export async function requireAdmin() {
-  const { user, emp } = await getSessionEmployee()
-  const emails = [emp.email, emp.institutional_email, user.email].map((e) => (e || '').toLowerCase())
+/** Konteks admin untuk server action: null jika belum login / bukan admin (tanpa redirect). */
+export async function getAdminContext() {
+  const session = await auth()
+  const employeeId = session?.user?.id
+  if (!session?.user?.email || !employeeId) return null
+
+  const db = getDb()
+  const [emp] = await db.select().from(schema.employees).where(eq(schema.employees.id, employeeId)).limit(1)
+  if (!emp) return null
+
+  const emails = [emp.email, emp.institutional_email, session.user.email].map((e) => (e || '').toLowerCase())
   const isAdmin = emp.role === 'Admin' || ADMIN_EMAILS.some((a) => emails.includes(a.toLowerCase()))
-  if (!isAdmin) redirect('/employee/dashboard')
+  return isAdmin ? { user: session.user, emp } : null
+}
+
+export async function requireAdmin() {
+  const ctx = await getAdminContext()
+  if (!ctx) {
+    const session = await auth()
+    redirect(session?.user?.id ? '/employee/dashboard' : '/')
+  }
+  const { user, emp } = ctx
 
   return {
     user,
