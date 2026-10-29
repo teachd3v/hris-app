@@ -41,7 +41,7 @@ export default function DeleteEmployeeButton({ employeeId, employeeName, employe
       {step > 0 && (
         <ModalPortal>
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm">
-          <div className="glass w-full max-w-md p-6 shadow-2xl border-red-200/50">
+          <div className="bg-white rounded-3xl border border-red-200 w-full max-w-md p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-600"><AlertTriangle size={24} /></div>
               <button type="button" onClick={close} className="p-2 text-ink-3 hover:text-ink rounded-full"><X size={18} /></button>

@@ -41,7 +41,7 @@ export default function ChangePasswordModal({ open, onClose }: { open: boolean; 
   return (
     <ModalPortal>
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm">
-      <div className="glass w-full max-w-md p-6 shadow-2xl">
+      <div className="bg-white rounded-3xl border border-line-2 w-full max-w-md p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-black text-ink">Ubah Password</h3>
           <button type="button" onClick={onClose} className="p-2 text-ink-3 hover:text-ink rounded-full"><X size={18} /></button>
