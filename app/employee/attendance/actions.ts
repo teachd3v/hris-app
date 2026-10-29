@@ -4,7 +4,8 @@ import { auth } from '@/auth';
 import { getDb } from '@/lib/db';
 import { employees, attendances } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { BUCKET_NAME, uploadToStorage } from '@/lib/storage';
+import { uploadToStorage } from '@/lib/storage';
+import { validateUpload, IMAGE_KINDS, MB } from '@/lib/upload';
 
 export async function fetchAttendanceData() {
   const session = await auth();
@@ -44,13 +45,18 @@ export async function submitAttendance(type: 'in' | 'out', formData: FormData) {
   if (empRecords.length === 0) return { error: 'Employee not found' };
   const employee = empRecords[0];
 
+  if (type !== 'in' && type !== 'out') return { error: 'Jenis presensi tidak valid' };
+  const latNum = Number(lat), lngNum = Number(lng);
+  if (!Number.isFinite(latNum) || !Number.isFinite(lngNum) || Math.abs(latNum) > 90 || Math.abs(lngNum) > 180) {
+    return { error: 'Lokasi tidak valid' };
+  }
+
   let publicUrl = null;
   if (file) {
-    const fileName = `attendances/${employee.id}/${Date.now()}_${type}.jpg`;
-    const buffer = Buffer.from(await file.arrayBuffer());
-    
-    await uploadToStorage(fileName, buffer, 'image/jpeg');
-
+    const v = await validateUpload(file, { maxBytes: 5 * MB, kinds: IMAGE_KINDS, name: 'Foto presensi' });
+    if (!v.ok) return { error: v.error };
+    const fileName = `attendances/${employee.id}/${Date.now()}_${type}.${v.ext}`;
+    await uploadToStorage(fileName, v.buffer, v.contentType);
     publicUrl = `/storage/${fileName}`;
   }
 

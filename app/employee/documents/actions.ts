@@ -3,7 +3,8 @@
 import { auth } from '@/auth'
 import { getDb } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
-import { getStorageClient, BUCKET_NAME, uploadToStorage, deleteFromStorage } from '@/lib/storage'
+import { uploadToStorage, deleteFromStorage } from '@/lib/storage'
+import { validateUpload, DOCUMENT_KINDS, MB } from '@/lib/upload'
 import { eq, and, desc } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { DocumentCategory } from '@/lib/dummy-data'
@@ -35,7 +36,13 @@ export async function getDocuments() {
   }))
 }
 
-export async function uploadDocument(formData: FormData) {
+const MAX_FILE = 15 * MB
+const MAX_TOTAL = 40 * MB
+const MAX_FILES = 10
+
+type StoredFile = { url: string; name: string; size: string; type: string }
+
+export async function uploadDocument(formData: FormData): Promise<{ error?: string }> {
   const session = await auth()
   if (!session?.user?.email) throw new Error('Not authenticated')
 
@@ -44,49 +51,76 @@ export async function uploadDocument(formData: FormData) {
   if (empRecords.length === 0) throw new Error('Employee not found')
   const employee = empRecords[0]
 
-  const id = formData.get('id') as string | null
-  const title = formData.get('title') as string
-  const category = formData.get('category') as string
-  const subCategory = formData.get('subCategory') as string
-  const newFiles = formData.getAll('file') as File[]
-  const existingFilesJson = formData.get('existingFiles') as string
-  const existingFiles = existingFilesJson ? JSON.parse(existingFilesJson) : []
+  const id = (formData.get('id') as string | null) || null
+  const title = String(formData.get('title') ?? '').trim()
+  const category = String(formData.get('category') ?? '').trim()
+  const subCategory = String(formData.get('subCategory') ?? '').trim()
+  const newFiles = (formData.getAll('file') as File[]).filter((f) => f instanceof File && f.size > 0)
 
-  const finalFiles = [...existingFiles]
+  if (!title || title.length > 200) return { error: 'Judul dokumen wajib diisi (maks. 200 karakter)' }
+  if (!category || category.length > 100 || subCategory.length > 100) return { error: 'Kategori dokumen tidak valid' }
+  if (newFiles.length > MAX_FILES) return { error: `Maksimal ${MAX_FILES} file per dokumen` }
+  if (newFiles.reduce((a, f) => a + f.size, 0) > MAX_TOTAL) return { error: `Total ukuran file maksimal ${MAX_TOTAL / MB} MB` }
 
-  // 1. Upload new files to Storage
-  for (const file of newFiles) {
-    if (file.size === 0) continue // Skip empty files
-
-    const fileExt = file.name.split('.').pop()
-    const fileName = `documents/${employee.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
-    const buffer = Buffer.from(await file.arrayBuffer())
-
+  // File lama hanya boleh berasal dari dokumen milik karyawan ini (tidak boleh disuntik dari klien)
+  let existingFiles: StoredFile[] = []
+  if (id) {
+    const [doc] = await db.select().from(schema.employee_documents)
+      .where(and(eq(schema.employee_documents.id, id), eq(schema.employee_documents.employee_id, employee.id))).limit(1)
+    if (!doc) return { error: 'Dokumen tidak ditemukan' }
+    const current: StoredFile[] = typeof doc.files === 'string' ? JSON.parse(doc.files) : (doc.files as StoredFile[] | null) || []
+    let keepUrls: string[] = []
     try {
-      await uploadToStorage(fileName, buffer, file.type || 'application/octet-stream')
-      finalFiles.push({
-        url: `/storage/${fileName}`,
-        name: file.name,
-        size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        type: fileExt?.toUpperCase() || 'FILE'
-      })
-    } catch (uploadError) {
-      console.error('Error uploading to storage:', uploadError)
-      throw new Error(`Failed to upload ${file.name} to storage`)
+      const parsed = JSON.parse(String(formData.get('existingFiles') ?? '[]'))
+      keepUrls = Array.isArray(parsed) ? parsed.map((f: { url?: unknown }) => String(f?.url ?? '')) : []
+    } catch {
+      return { error: 'Data file lama tidak valid' }
+    }
+    existingFiles = current.filter((f) => keepUrls.includes(f.url))
+    // File yang dibuang dari daftar dihapus dari storage
+    const prefix = `/storage/documents/${employee.id}/`
+    for (const removed of current.filter((f) => !keepUrls.includes(f.url))) {
+      if (removed.url.startsWith(prefix)) await deleteFromStorage(removed.url.slice('/storage/'.length)).catch((e) => console.error('Error deleting removed file', e))
     }
   }
 
-  if (finalFiles.length === 0) {
-    throw new Error('Minimal satu file harus diunggah')
+  // Validasi semua file baru sebelum ada yang diunggah
+  const validated: { file: File; v: Extract<Awaited<ReturnType<typeof validateUpload>>, { ok: true }> }[] = []
+  for (const file of newFiles) {
+    const v = await validateUpload(file, { maxBytes: MAX_FILE, kinds: DOCUMENT_KINDS, name: file.name })
+    if (!v.ok) return { error: v.error }
+    validated.push({ file, v })
   }
+
+  const finalFiles: StoredFile[] = [...existingFiles]
+  const uploadedKeys: string[] = []
+  try {
+    for (const { file, v } of validated) {
+      const key = `documents/${employee.id}/${Date.now()}-${crypto.randomUUID()}.${v.ext}`
+      await uploadToStorage(key, v.buffer, v.contentType)
+      uploadedKeys.push(key)
+      finalFiles.push({
+        url: `/storage/${key}`,
+        name: file.name.slice(0, 200),
+        size: `${(v.size / MB).toFixed(1)} MB`,
+        type: v.ext.toUpperCase(),
+      })
+    }
+  } catch (e) {
+    console.error('Error uploading to storage:', e)
+    await Promise.all(uploadedKeys.map((k) => deleteFromStorage(k).catch(() => {})))
+    return { error: 'Gagal mengunggah file ke penyimpanan' }
+  }
+
+  if (finalFiles.length === 0) return { error: 'Minimal satu file harus diunggah' }
 
   // Use the first file as primary for legacy support if needed
   const primaryFile = finalFiles[0]
 
   const dbData = {
     employee_id: employee.id,
-    title: title,
-    category: category,
+    title,
+    category,
     sub_category: subCategory,
     type: primaryFile.type,
     size: primaryFile.size,
@@ -96,10 +130,8 @@ export async function uploadDocument(formData: FormData) {
   }
 
   if (id) {
-    // 2. Update existing record
     await db.update(schema.employee_documents).set(dbData).where(and(eq(schema.employee_documents.id, id), eq(schema.employee_documents.employee_id, employee.id)))
   } else {
-    // 3. Insert new record
     await db.insert(schema.employee_documents).values({
       ...dbData,
       id: crypto.randomUUID(),
@@ -108,9 +140,10 @@ export async function uploadDocument(formData: FormData) {
   }
 
   revalidatePath('/employee/documents')
+  return {}
 }
 
-export async function deleteDocument(id: string, fileUrl: string) {
+export async function deleteDocument(id: string, _fileUrl?: string) {
   const session = await auth()
   if (!session?.user?.email) throw new Error('Not authenticated')
 
@@ -119,20 +152,23 @@ export async function deleteDocument(id: string, fileUrl: string) {
   if (empRecords.length === 0) throw new Error('Employee not found')
   const employee = empRecords[0]
 
-  // Extract path from URL
-  const urlParts = fileUrl.split('/')
-  const fileName = urlParts[urlParts.length - 1]
-  const filePath = `documents/${employee.id}/${fileName}`
+  // Ambil file dari database (bukan dari klien) dan hapus semuanya dari storage
+  const [doc] = await db.select().from(schema.employee_documents)
+    .where(and(eq(schema.employee_documents.id, id), eq(schema.employee_documents.employee_id, employee.id))).limit(1)
+  if (!doc) throw new Error('Dokumen tidak ditemukan')
 
-  // 1. Delete from Storage
-  try {
-    await deleteFromStorage(filePath)
-  } catch (storageError) {
-    console.error('Error deleting from storage:', storageError)
-    // We continue even if storage delete fails
+  const files: StoredFile[] = typeof doc.files === 'string' ? JSON.parse(doc.files) : (doc.files as StoredFile[] | null) || []
+  const urls = new Set([...files.map((f) => f.url), ...(doc.file_url ? [doc.file_url] : [])])
+  const prefix = `/storage/documents/${employee.id}/`
+  for (const url of urls) {
+    if (!url.startsWith(prefix)) continue
+    try {
+      await deleteFromStorage(url.slice('/storage/'.length))
+    } catch (storageError) {
+      console.error('Error deleting from storage:', storageError)
+    }
   }
 
-  // 2. Delete from Database
   await db.delete(schema.employee_documents).where(and(eq(schema.employee_documents.id, id), eq(schema.employee_documents.employee_id, employee.id)))
 
   revalidatePath('/employee/documents')

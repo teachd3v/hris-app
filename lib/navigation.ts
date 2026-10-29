@@ -20,3 +20,25 @@ export const EMPLOYEE_MENU: { label: string; items: MenuItem[] }[] = [
     ],
   },
 ];
+
+export const ADMIN_MENU: { label: string; items: MenuItem[] }[] = [
+  {
+    label: "Manajemen",
+    items: [
+      { icon: "👥", label: "Karyawan", href: "/admin/employees" },
+      { icon: "📊", label: "Asesmen", href: "/admin/assessments" },
+      { icon: "🏠", label: "Dasbor", href: "/admin/dashboard", isComingSoon: true },
+      { icon: "⏰", label: "Presensi", href: "/admin/attendance", isComingSoon: true },
+      { icon: "📅", label: "Pengajuan Cuti", href: "/admin/leave-requests" },
+      { icon: "🗓️", label: "Kuota Cuti", href: "/admin/leave-quotas" },
+      { icon: "💰", label: "Payroll", href: "/admin/payroll", isComingSoon: true },
+    ],
+  },
+  {
+    label: "Lainnya",
+    items: [
+      { icon: "📈", label: "Laporan", href: "/admin/reports", isComingSoon: true },
+      { icon: "⚙️", label: "Pengaturan", href: "/admin/settings", isComingSoon: true },
+    ],
+  },
+];

@@ -100,7 +100,8 @@ export default function DocumentsPage() {
   );
 
   const handleSaveDocument = async (formData: FormData) => {
-    await uploadDocument(formData);
+    const res = await uploadDocument(formData);
+    if (res?.error) throw new Error(res.error);
     await fetchData();
   };
 

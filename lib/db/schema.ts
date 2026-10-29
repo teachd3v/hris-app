@@ -280,6 +280,17 @@ export const verificationTokens = sqliteTable('verificationToken', {
   compoundKey: primaryKey({ columns: [vt.identifier, vt.token] })
 }));
 
+// Jatah cuti per karyawan, per jenis, per tahun. Tidak ada baris = pakai nilai default (lihat lib/leave-balance.ts).
+export const leave_quotas = sqliteTable("leave_quotas", {
+  employee_id: text("employee_id").notNull(),
+  leave_type: text("leave_type").notNull(),
+  year: integer("year").notNull(),
+  quota: numeric("quota").notNull(),
+  updated_at: text("updated_at"),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.employee_id, t.leave_type, t.year] }),
+}));
+
 export const leave_requests = sqliteTable("leave_requests", {
   id: text("id").primaryKey(),
   employee_id: text("employee_id"),
