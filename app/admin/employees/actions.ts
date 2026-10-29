@@ -122,31 +122,37 @@ export async function deleteEmployee(
     if (others.length === 0) return { error: 'Tidak dapat menghapus admin terakhir' }
   }
 
-  const byEmployee = [
-    schema.achievements, schema.attendances, schema.career_interests, schema.committee_experiences,
-    schema.educations, schema.emergency_contacts, schema.employee_assessments, schema.employee_documents,
-    schema.family_members, schema.languages, schema.non_formal_educations, schema.org_experiences,
-    schema.promotion_histories, schema.skills, schema.social_activities, schema.trainings,
-    schema.work_experiences, schema.leave_requests,
-  ].map((t) => db.delete(t).where(eq(t.employee_id, employeeId)))
+  try {
+    const byEmployee = [
+      schema.achievements, schema.attendances, schema.career_interests, schema.committee_experiences,
+      schema.educations, schema.emergency_contacts, schema.employee_assessments, schema.employee_documents,
+      schema.family_members, schema.languages, schema.non_formal_educations, schema.org_experiences,
+      schema.promotion_histories, schema.skills, schema.social_activities, schema.trainings,
+      schema.work_experiences, schema.leave_requests,
+    ].map((t) => db.delete(t).where(eq(t.employee_id, employeeId)))
 
-  await db.batch([
-    ...byEmployee,
-    db.delete(schema.employee_credentials).where(eq(schema.employee_credentials.employee_id, employeeId)),
-    // Bawahan yang atasannya dihapus tidak lagi punya atasan
-    db.update(schema.employees).set({ manager_id: null }).where(eq(schema.employees.manager_id, employeeId)),
-    db.delete(schema.employees).where(eq(schema.employees.id, employeeId)),
-  ] as any)
+    await db.batch([
+      ...byEmployee,
+      db.delete(schema.employee_credentials).where(eq(schema.employee_credentials.employee_id, employeeId)),
+      // Bawahan yang atasannya dihapus tidak lagi punya atasan
+      db.update(schema.employees).set({ manager_id: null }).where(eq(schema.employees.manager_id, employeeId)),
+      db.delete(schema.employees).where(eq(schema.employees.id, employeeId)),
+    ] as any)
 
-  // Bersihkan file R2 (best effort: data DB sudah terhapus)
-  for (const prefix of STORAGE_PREFIXES) {
-    try {
-      await deleteStoragePrefix(`${prefix}/${employeeId}/`)
-    } catch (e) {
-      console.error(`Failed to delete storage ${prefix}/${employeeId}/`, e)
+    // Bersihkan file R2 (best effort: data DB sudah terhapus)
+    for (const prefix of STORAGE_PREFIXES) {
+      try {
+        await deleteStoragePrefix(`${prefix}/${employeeId}/`)
+      } catch (e) {
+        console.error(`Failed to delete storage ${prefix}/${employeeId}/`, e)
+      }
     }
+  } catch (e) {
+    console.error('deleteEmployee failed', e)
+    return { error: `Gagal menghapus akun: ${e instanceof Error ? e.message : 'kesalahan tidak dikenal'}` }
   }
 
-  revalidatePath('/admin/employees')
+  // Tanpa revalidatePath: halaman detail yang sedang dibuka sudah tidak punya data (notFound),
+  // klien yang mengalihkan ke daftar dan me-refresh.
   return {}
 }
