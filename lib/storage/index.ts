@@ -75,3 +75,22 @@ export async function deleteFromStorage(key: string) {
   }
   return response;
 }
+
+/** Hapus semua objek dengan prefix tertentu lewat binding R2. Mengembalikan jumlah objek terhapus. */
+export async function deleteStoragePrefix(prefix: string) {
+  const { env } = getCloudflareContext() as any;
+  if (!env?.STORAGE) throw new Error("Native R2 binding env.STORAGE not available");
+
+  let deleted = 0;
+  let cursor: string | undefined;
+  do {
+    const page = await env.STORAGE.list({ prefix, cursor, limit: 500 });
+    const keys: string[] = page.objects.map((o: { key: string }) => o.key);
+    if (keys.length > 0) {
+      await env.STORAGE.delete(keys);
+      deleted += keys.length;
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  return deleted;
+}
