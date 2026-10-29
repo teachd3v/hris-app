@@ -14,26 +14,10 @@ export default function BottomNav({ items }: { items: MenuItem[] }) {
     return pathname.startsWith(href);
   };
 
-  // Find specific items for the 3-button layout
-  const cutiItem = items.find(i => i.label.toLowerCase().includes("cuti"));
-  const presensiItem = items.find(i => i.label.toLowerCase().includes("presensi"));
-  const profileItem = items.find(i => i.label.toLowerCase().includes("profil"));
-
-  // Fallback if the items aren't found (e.g. different menu passed)
-  if (!cutiItem || !presensiItem || !profileItem) {
-    if (!items || items.length === 0) return null;
-    return (
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-[var(--line)] shadow-[0_-20px_40px_rgba(20,18,30,0.06)] md:hidden z-50 px-6 py-4 pb-safe">
-        <div className="flex justify-between items-center max-w-md mx-auto">
-          {items.map((item, idx) => (
-            <Link key={idx} href={item.isComingSoon ? "#" : item.href} className="flex flex-col items-center">
-              <div className="text-2xl">{item.icon}</div>
-            </Link>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  // Find specific items for 3-button mobile layout
+  const cutiItem = items.find(i => i.label.toLowerCase().includes("cuti")) || { label: "Cuti", icon: "🏖️", href: "/employee/cuti" };
+  const presensiItem = items.find(i => i.label.toLowerCase().includes("presensi")) || { label: "Presensi", icon: "⏰", href: "/employee/attendance" };
+  const profileItem = items.find(i => i.label.toLowerCase().includes("profil")) || { label: "Profil", icon: "👤", href: "/employee/profile" };
 
   return (
     <div className="fixed bottom-0 left-0 right-0 md:hidden z-50 pb-safe pointer-events-none">
@@ -53,16 +37,17 @@ export default function BottomNav({ items }: { items: MenuItem[] }) {
           
           {/* LEFT: Cuti */}
           <Link
-            href={cutiItem.isComingSoon ? "#" : cutiItem.href}
-            onClick={(e) => cutiItem.isComingSoon && e.preventDefault()}
-            className={`flex flex-col items-center gap-0.5 transition-all duration-300 w-14 ${
-              isActive(cutiItem.href) ? "text-[var(--red)]" : "text-[var(--ink-4)]"
-            } ${cutiItem.isComingSoon ? "opacity-40" : ""}`}
+            href={cutiItem.href}
+            className="flex flex-col items-center justify-center gap-1 w-16 -mt-3 group"
           >
-            <div className={`text-2xl ${isActive(cutiItem.href) ? "scale-110 drop-shadow-sm" : ""}`}>
-              {cutiItem.icon}
+            <div className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-300 ${isActive(cutiItem.href) ? 'bg-orange-100 shadow-inner scale-110' : 'bg-transparent hover:bg-gray-50'}`}>
+              <span className={`text-[22px] transition-transform duration-300 ${isActive(cutiItem.href) ? 'scale-110 drop-shadow-md' : 'grayscale-[50%] opacity-70 group-hover:scale-110 group-hover:grayscale-0 group-hover:opacity-100'}`}>
+                {cutiItem.icon}
+              </span>
             </div>
-            <span className="text-[10px] font-bold tracking-wide">{cutiItem.label}</span>
+            <span className={`text-[10px] font-black tracking-wide transition-colors duration-300 ${isActive(cutiItem.href) ? 'text-[var(--red)]' : 'text-gray-400 group-hover:text-gray-600'}`}>
+              {cutiItem.label}
+            </span>
           </Link>
 
           {/* CENTER: Presensi (Floating Action Button) */}
@@ -80,7 +65,7 @@ export default function BottomNav({ items }: { items: MenuItem[] }) {
           <Link
             href={profileItem.href}
             className={`flex flex-col items-center gap-0.5 transition-all duration-300 w-14 ${
-              isActive(profileItem.href) ? "text-[var(--red)]" : "text-[var(--ink-4)]"
+              isActive(profileItem.href) ? "text-[var(--red)] font-black" : "text-[var(--ink-4)]"
             }`}
           >
             <div className={`text-2xl ${isActive(profileItem.href) ? "scale-110 drop-shadow-sm" : ""}`}>

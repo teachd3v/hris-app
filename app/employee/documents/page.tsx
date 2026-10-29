@@ -136,6 +136,8 @@ export default function DocumentsPage() {
       userInitials={userProfile.initials}
       userPhoto={userProfile.photo}
       menuSections={EMPLOYEE_MENU}
+      hideBottomNav={true}
+      showMobileHome={true}
     >
       <div className="page-head flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>

@@ -4,33 +4,13 @@ import { useState, useEffect } from "react";
 import { Bell } from "lucide-react";
 import Link from "next/link";
 import DashboardLayout from "@/components/common/DashboardLayout";
-
-const EMPLOYEE_MENU = [
-  {
-    label: "Utama",
-    items: [
-      { icon: "👤", label: "Profil Saya", href: "/employee/profile" },
-      { icon: "📄", label: "Dokumen", href: "/employee/documents", isComingSoon: true },
-      { icon: "📋", label: "Asesmen", href: "/employee/assessments", isComingSoon: true },
-    ],
-  },
-  {
-    label: "Lainnya",
-    items: [
-      { icon: "🏠", label: "Beranda", href: "/employee/dashboard" },
-      { icon: "⏰", label: "Presensi", href: "/employee/attendance" },
-      { icon: "📅", label: "Cuti", href: "/employee/cuti" },
-      { icon: "💰", label: "Payroll", href: "/employee/payroll", isComingSoon: true },
-      { icon: "⚙️", label: "Pengaturan", href: "/employee/settings", isComingSoon: true },
-    ],
-  },
-];
+import { EMPLOYEE_MENU } from "@/lib/navigation";
 
 const APPS = [
-  { icon: "💰", label: "Payroll", desc: "Slip Gaji", href: "/employee/payroll", color: "bg-purple-50 text-purple-600", isComingSoon: true },
-  { icon: "📄", label: "Dokumen", desc: "File Resmi", href: "/employee/documents", color: "bg-rose-50 text-rose-600", isComingSoon: true },
-  { icon: "📋", label: "Asesmen", desc: "Evaluasi", href: "/employee/assessments", color: "bg-indigo-50 text-indigo-600", isComingSoon: true },
-  { icon: "⚙️", label: "Settings", desc: "Pengaturan", href: "/employee/settings", color: "bg-gray-50 text-gray-600", isComingSoon: true },
+  { icon: "📄", label: "Dokumen", desc: "File Resmi", href: "/employee/documents", color: "bg-rose-50 text-rose-600" },
+  { icon: "📋", label: "Asesmen", desc: "Evaluasi", href: "/employee/assessments", color: "bg-indigo-50 text-indigo-600" },
+  { icon: "💰", label: "Payroll", desc: "Slip Gaji", href: "/employee/coming-soon?feature=payroll", color: "bg-purple-50 text-purple-600", isComingSoon: true },
+  { icon: "⚙️", label: "Settings", desc: "Pengaturan", href: "/employee/coming-soon?feature=settings", color: "bg-gray-50 text-gray-600", isComingSoon: true },
 ];
 
 import { getDistanceFromLatLonInKm } from "@/lib/geo";
@@ -117,9 +97,9 @@ export default function GridDashboardClient({
       userName={userName}
       userInitials={userInitials}
       userPhoto={userPhoto}
+      hideTopbar={true}
+      noPadding={true}
       menuSections={EMPLOYEE_MENU}
-      hideTopbar
-      noPadding
     >
       <div className="flex flex-col min-h-screen md:min-h-0 bg-[var(--bg)] md:bg-transparent pb-8">
         
@@ -162,10 +142,11 @@ export default function GridDashboardClient({
         </div>
 
         {/* Desktop Header */}
-        <div className="hidden md:flex justify-between items-center mb-8 px-5 pt-5">
+        <div className="hidden md:flex page-head flex-col md:flex-row md:items-end justify-between gap-6 mb-4">
            <div>
-              <h1 className="text-3xl font-black text-[var(--ink)] tracking-tight">Dashboard Utama</h1>
-              <p className="text-[var(--ink-3)] text-sm mt-1">Akses cepat ke semua fitur operasional HRIS.</p>
+              <span className="eyebrow">Beranda Utama</span>
+              <h1 className="text-ink">Dashboard Karyawan</h1>
+              <p className="text-ink-3">Ringkasan aktivitas harian, presensi, pengumuman, dan kuota cuti Anda.</p>
            </div>
         </div>
 
@@ -206,8 +187,8 @@ export default function GridDashboardClient({
             </div>
           </div>
 
-          {/* Grid Menu Container */}
-          <div className="bg-white rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-5 border border-[var(--line)]">
+          {/* Grid Menu Container (Mobile Quick Access) */}
+          <div className="md:hidden bg-white rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-5 border border-[var(--line)]">
             <div className="flex justify-between items-center mb-4 px-1">
                <h2 className="text-[15px] font-black text-[var(--ink)] tracking-tight">Menu Utama</h2>
                <span className="text-[9px] font-black tracking-wider text-[var(--red)] bg-[var(--red-soft)] px-2 py-0.5 rounded-md uppercase">TEACH</span>
