@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, X } from "lucide-react";
+import ModalPortal from "@/components/common/ModalPortal";
 import { deleteEmployee } from "@/app/admin/employees/actions";
 
 export default function DeleteEmployeeButton({ employeeId, employeeName, employeeEmail }: { employeeId: string; employeeName: string; employeeEmail: string }) {
@@ -38,6 +39,7 @@ export default function DeleteEmployeeButton({ employeeId, employeeName, employe
     <>
       <button type="button" onClick={() => setStep(1)} className="btn btn-ghost btn-sm text-red-600">Hapus Akun</button>
       {step > 0 && (
+        <ModalPortal>
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm">
           <div className="glass w-full max-w-md p-6 shadow-2xl border-red-200/50">
             <div className="flex items-center justify-between mb-4">
@@ -70,6 +72,7 @@ export default function DeleteEmployeeButton({ employeeId, employeeName, employe
             )}
           </div>
         </div>
+        </ModalPortal>
       )}
     </>
   );

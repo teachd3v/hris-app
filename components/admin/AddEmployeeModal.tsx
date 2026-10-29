@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
+import ModalPortal from "@/components/common/ModalPortal";
 import { createEmployee } from "@/app/admin/employees/actions";
 
 export default function AddEmployeeModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
@@ -33,6 +34,7 @@ export default function AddEmployeeModal({ open, onClose, onCreated }: { open: b
   const inputClass = "w-full h-11 px-3 rounded-xl border border-line-2 bg-white text-sm text-ink outline-none focus:border-[var(--red)]";
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm">
       <div className="glass w-full max-w-md p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
@@ -63,5 +65,6 @@ export default function AddEmployeeModal({ open, onClose, onCreated }: { open: b
         )}
       </div>
     </div>
+    </ModalPortal>
   );
 }
