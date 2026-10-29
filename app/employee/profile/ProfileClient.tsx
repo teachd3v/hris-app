@@ -202,6 +202,7 @@ export default function UserDashboard({ initialData }: { initialData: typeof dum
               <h1 className="text-3xl font-black text-[var(--ink)] tracking-tight">Profil Karyawan</h1>
               <p className="text-[var(--ink-3)] text-sm mt-1">Kelola data personal dan karir Anda.</p>
            </div>
+           <button type="button" onClick={() => setIsPasswordModalOpen(true)} className="btn btn-ghost btn-sm">Ubah Password</button>
         </div>
 
         <div className="relative z-20 px-6 -mt-6 w-full max-w-full">
