@@ -5,6 +5,7 @@ import { PROVINCES, REGENCIES } from "@/lib/wilayah-data";
 
 export interface PersonalFormValues {
   email: string;
+  institutional_email?: string;
   phone: string;
   nik: string;
   birth: string;
@@ -58,12 +59,16 @@ export default function DataPersonalForm({ formId, defaultValues, onSubmit }: Pr
       className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4"
     >
       <div>
-        <label className={labelCls}>Email</label>
-        <input type="email" className={inputCls} {...register("email")} />
+        <label className={labelCls}>Email Pribadi</label>
+        <input type="email" className={inputCls} required {...register("email")} />
+      </div>
+      <div>
+        <label className={labelCls}>Email Lembaga</label>
+        <input type="email" placeholder="...@dompetdhuafa.org" className={inputCls} {...register("institutional_email")} />
       </div>
       <div>
         <label className={labelCls}>Telepon</label>
-        <input type="tel" className={inputCls} {...register("phone")} />
+        <input type="tel" className={inputCls} required {...register("phone")} />
       </div>
       <div>
         <label className={labelCls}>NIK</label>
@@ -72,6 +77,7 @@ export default function DataPersonalForm({ formId, defaultValues, onSubmit }: Pr
           maxLength={16}
           placeholder="16 digit angka"
           className={inputCls} 
+          required
           {...register("nik")} 
           onInput={(e) => {
             e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 16);
@@ -80,18 +86,19 @@ export default function DataPersonalForm({ formId, defaultValues, onSubmit }: Pr
       </div>
       <div>
         <label className={labelCls}>Tanggal Lahir</label>
-        <input type="date" className={inputCls} {...register("birth")} />
+        <input type="date" className={inputCls} required {...register("birth")} />
       </div>
       <div>
         <label className={labelCls}>Jenis Kelamin</label>
-        <select className={inputCls} {...register("gender")}>
+        <select className={inputCls} required {...register("gender")}>
+          <option value="">Pilih Jenis Kelamin</option>
           <option value="Laki-laki">Laki-laki</option>
           <option value="Perempuan">Perempuan</option>
         </select>
       </div>
       <div>
         <label className={labelCls}>Golongan Darah</label>
-        <select className={inputCls} {...register("bloodType")}>
+        <select className={inputCls} required {...register("bloodType")}>
           <option value="">Pilih Golongan Darah</option>
           <option value="A">A</option>
           <option value="B">B</option>
@@ -101,11 +108,12 @@ export default function DataPersonalForm({ formId, defaultValues, onSubmit }: Pr
       </div>
       <div>
         <label className={labelCls}>Kewarganegaraan</label>
-        <input type="text" className={inputCls} {...register("nationality")} />
+        <input type="text" className={inputCls} required {...register("nationality")} />
       </div>
       <div>
         <label className={labelCls}>Status Pernikahan</label>
-        <select className={inputCls} {...register("maritalStatus")}>
+        <select className={inputCls} required {...register("maritalStatus")}>
+          <option value="">Pilih Status</option>
           <option value="Belum Menikah">Belum Menikah</option>
           <option value="Menikah">Menikah</option>
           <option value="Cerai">Cerai</option>
@@ -114,20 +122,21 @@ export default function DataPersonalForm({ formId, defaultValues, onSubmit }: Pr
       </div>
       <div>
         <label className={labelCls}>Agama</label>
-        <input type="text" className={inputCls} {...register("religion")} />
+        <input type="text" className={inputCls} required {...register("religion")} />
       </div>
       <div className="md:col-span-2">
         <label className={labelCls}>Alamat Sesuai KTP</label>
-        <textarea rows={2} className={inputCls} {...register("ktpAddress")} />
+        <textarea rows={2} className={inputCls} required {...register("ktpAddress")} />
       </div>
       <div className="md:col-span-2">
         <label className={labelCls}>Alamat Domisili</label>
-        <textarea rows={2} className={inputCls} {...register("address")} />
+        <textarea rows={2} className={inputCls} required {...register("address")} />
       </div>
       <div>
         <label className={labelCls}>Provinsi</label>
         <select
           className={inputCls}
+          required
           {...provinceField}
           onChange={(e) => {
             provinceField.onChange(e);
@@ -144,7 +153,7 @@ export default function DataPersonalForm({ formId, defaultValues, onSubmit }: Pr
       </div>
       <div>
         <label className={labelCls}>Kota / Kabupaten</label>
-        <select className={inputCls} disabled={!province} {...register("city")}>
+        <select className={inputCls} required disabled={!province} {...register("city")}>
           <option value="">
             {!province ? "Pilih provinsi dulu" : "Pilih kota / kabupaten"}
           </option>
@@ -157,11 +166,11 @@ export default function DataPersonalForm({ formId, defaultValues, onSubmit }: Pr
       </div>
       <div>
         <label className={labelCls}>Kode Pos</label>
-        <input type="text" className={inputCls} {...register("postalCode")} />
+        <input type="text" className={inputCls} required {...register("postalCode")} />
       </div>
       <div>
         <label className={labelCls}>Negara</label>
-        <input type="text" className={inputCls} {...register("country")} />
+        <input type="text" className={inputCls} required {...register("country")} />
       </div>
     </form>
   );

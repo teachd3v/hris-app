@@ -33,14 +33,14 @@ export default async function AdminAssessmentsPage() {
   const [
     templates,
     allAssessments,
-    empCountResult,
+    allEmployees,
   ] = await Promise.all([
-    db.select().from(schema.assessment_templates).orderBy(desc(schema.assessment_templates.created_at)),
+    db.select().from(schema.assessment_templates),
     db.select({ template_id: schema.employee_assessments.template_id, status: schema.employee_assessments.status }).from(schema.employee_assessments),
-    db.select({ count: sql<number>`count(*)` }).from(schema.employees),
+    db.select({ id: schema.employees.id }).from(schema.employees),
   ]);
 
-  const employeesCount = empCountResult[0]?.count || 0;
+  const employeesCount = allEmployees?.length || 0;
 
   const adminName = adminProfile?.name || user.email?.split('@')[0] || "Admin";
   const adminInitials = adminName.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);

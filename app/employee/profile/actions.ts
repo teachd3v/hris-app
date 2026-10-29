@@ -3,7 +3,7 @@
 import { auth } from '@/auth'
 import { getDb } from '@/lib/db'
 import { BUCKET_NAME, uploadToStorage } from '@/lib/storage'
-import { eq } from 'drizzle-orm'
+import { eq, or } from 'drizzle-orm'
 import * as schema from '@/lib/db/schema'
 import { revalidatePath } from 'next/cache'
 
@@ -12,7 +12,18 @@ export async function updateEmployeeProfile(section: string, updates: any) {
   if (!session?.user?.email) throw new Error('Not authenticated')
   
   const db = getDb()
-  const empRecords = await db.select({ id: schema.employees.id }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
+  const userEmail = session.user.email.toLowerCase().trim()
+  const empRecords = await db
+    .select({ id: schema.employees.id })
+    .from(schema.employees)
+    .where(
+      or(
+        eq(schema.employees.email, userEmail),
+        eq(schema.employees.institutional_email, userEmail)
+      )
+    )
+    .limit(1)
+
   if (empRecords.length === 0) throw new Error('Employee not found')
   const employeeId = empRecords[0].id
 
@@ -20,6 +31,7 @@ export async function updateEmployeeProfile(section: string, updates: any) {
     if (section === 'personal') {
       await db.update(schema.employees).set({
         email: updates.email,
+        institutional_email: updates.institutional_email || null,
         phone: updates.phone,
         nik: updates.nik,
         birth_date: updates.birth || null,
@@ -252,4 +264,32 @@ export async function uploadAvatar(base64Image: string) {
 
   revalidatePath('/employee/dashboard')
   return publicUrl
+}
+
+export async function markProfileCompleted() {
+  const session = await auth()
+  if (!session?.user?.email) throw new Error('Not authenticated')
+
+  const db = getDb()
+  const userEmail = session.user.email.toLowerCase().trim()
+  const empRecords = await db
+    .select({ id: schema.employees.id })
+    .from(schema.employees)
+    .where(
+      or(
+        eq(schema.employees.email, userEmail),
+        eq(schema.employees.institutional_email, userEmail)
+      )
+    )
+    .limit(1)
+
+  if (empRecords.length === 0) return
+
+  await db
+    .update(schema.employees)
+    .set({ profile_completed: 1, updated_at: new Date().toISOString() })
+    .where(eq(schema.employees.id, empRecords[0].id))
+
+  revalidatePath('/employee/profile')
+  revalidatePath('/employee/dashboard')
 }
