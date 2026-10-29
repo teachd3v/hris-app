@@ -16,26 +16,7 @@ import EditSectionModals, { type EditSectionKey } from "@/components/profile-edi
 import AvatarUploadModal from "@/components/profile-edit/AvatarUploadModal";
 import Link from "next/link";
 
-const EMPLOYEE_MENU = [
-  {
-    label: "Utama",
-    items: [
-      { icon: "👤", label: "Profil Saya", href: "/employee/dashboard" },
-      { icon: "📄", label: "Dokumen", href: "/employee/documents" },
-      { icon: "📋", label: "Asesmen", href: "/employee/assessments" },
-    ],
-  },
-  {
-    label: "Lainnya",
-    items: [
-      { icon: "🏠", label: "Beranda", href: "/employee/beranda", isComingSoon: true },
-      { icon: "⏰", label: "Presensi", href: "/employee/presensi", isComingSoon: true },
-      { icon: "📅", label: "Cuti", href: "/employee/cuti" },
-      { icon: "💰", label: "Payroll", href: "/employee/payroll", isComingSoon: true },
-      { icon: "⚙️", label: "Pengaturan", href: "/employee/settings", isComingSoon: true },
-    ],
-  },
-];
+import { EMPLOYEE_MENU } from "@/lib/navigation";
 
 const TABS = [
   { key: "personal", label: "Personal", icon: User },
@@ -108,25 +89,41 @@ function ListCard({ children }: { children: ReactNode }) {
   return <div className="border border-line-2 rounded-xl p-4">{children}</div>;
 }
 
-import { updateEmployeeProfile, uploadAvatar } from "./actions";
+import { updateEmployeeProfile, uploadAvatar, markProfileCompleted } from "./actions";
 
-export default function UserDashboard({ initialData }: { initialData: typeof dummyUserProfile }) {
+export default function UserDashboard({ initialData, isOnboarding = false }: { initialData: typeof dummyUserProfile; isOnboarding?: boolean }) {
   const [data, setData] = useState(initialData);
   const [activeTab, setActiveTab] = useState<TabKey>("personal");
   const [editingSection, setEditingSection] = useState<EditSectionKey | null>(null);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState(!isOnboarding);
 
   const handleSaveData = async (updates: Partial<typeof dummyUserProfile>) => {
     // Optimistic UI update
-    setData((prev) => ({ ...prev, ...updates }));
+    const updatedData = { ...data, ...updates };
+    setData(updatedData);
     
-    // Save to Supabase
+    // Save to DB
     if (editingSection) {
       try {
         await updateEmployeeProfile(editingSection, updates);
+        
+        // Evaluate Onboarding Completion
+        if (isOnboarding && !onboardingDone) {
+          const reqPersonal = ['email', 'phone', 'nik', 'birth', 'gender', 'bloodType', 'nationality', 'maritalStatus', 'religion', 'address', 'ktpAddress', 'city', 'province', 'postalCode', 'country'];
+          const isPersonalComplete = reqPersonal.every(key => !!(updatedData as any)[key]);
+          
+          const isFamilyComplete = updatedData.maritalStatus === "Belum Menikah" || (updatedData.family && updatedData.family.length > 0);
+          
+          if (isPersonalComplete && isFamilyComplete) {
+            await markProfileCompleted();
+            setOnboardingDone(true);
+          } else if (editingSection === 'personal' && !isFamilyComplete) {
+            alert("Data personal tersimpan. Karena status pernikahan Anda bukan 'Belum Menikah', silakan lengkapi juga data Keluarga untuk menyelesaikan proses pendaftaran.");
+          }
+        }
       } catch (error) {
         console.error("Failed to update profile", error);
-        // Optionally revert data here
       }
     }
     
@@ -150,14 +147,39 @@ export default function UserDashboard({ initialData }: { initialData: typeof dum
       role="Karyawan"
       userName={data.name}
       userInitials={data.initials}
-      menuSections={EMPLOYEE_MENU}
-      hideTopbar
-      noPadding
+      userPhoto={data.photo}
+      hideTopbar={true}
+      hideBottomNav={true}
+      noPadding={true}
+      menuSections={isOnboarding && !onboardingDone ? [] : EMPLOYEE_MENU}
+      sidebarLocked={isOnboarding && !onboardingDone}
     >
       <div className="flex flex-col min-h-screen md:min-h-0 bg-[var(--bg)] md:bg-transparent pb-8 w-full overflow-x-hidden">
+
+        {/* Onboarding Banner */}
+        {isOnboarding && !onboardingDone && (
+          <div
+            className="mx-4 md:mx-0 mb-4 rounded-2xl px-5 py-4 flex items-start gap-4"
+            style={{
+              background: 'linear-gradient(135deg, rgba(255,107,53,0.1), rgba(255,170,0,0.08))',
+              border: '1.5px solid rgba(255,107,53,0.3)',
+            }}
+          >
+            <span className="text-2xl mt-0.5">🎉</span>
+            <div className="flex-1 min-w-0">
+              <div className="font-black text-ink text-sm mb-1">Selamat! Akun kamu telah disetujui!</div>
+              <div className="text-xs text-ink-3 leading-relaxed">
+                Sebelum mengakses semua fitur, lengkapi <strong>Data Personal</strong> kamu terlebih dahulu. Klik tombol <strong>Edit</strong> di bagian Data Personal di bawah ini.
+              </div>
+            </div>
+            {onboardingDone && (
+              <span className="text-green-500 font-bold text-xs whitespace-nowrap">✓ Selesai!</span>
+            )}
+          </div>
+        )}
         
         {/* Mobile Hero Header */}
-        <div className="relative pt-8 pb-16 px-6 bg-[var(--red)] text-white rounded-b-[40px] shadow-md overflow-hidden">
+        <div className="relative pt-8 pb-16 px-6 bg-[var(--red)] text-white rounded-b-[40px] shadow-md md:hidden overflow-hidden">
           <div className="absolute -top-20 -right-20 w-64 h-64 bg-white opacity-10 rounded-full blur-[40px]"></div>
           
           <Link href="/employee/dashboard" className="absolute top-6 left-6 z-20 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full transition-colors">
@@ -194,14 +216,15 @@ export default function UserDashboard({ initialData }: { initialData: typeof dum
         </div>
 
         {/* Desktop Header */}
-        <div className="hidden md:flex justify-between items-center mb-8 px-5 pt-5">
+        <div className="hidden md:flex page-head flex-col md:flex-row md:items-end justify-between gap-6 mb-4">
            <div>
-              <h1 className="text-3xl font-black text-[var(--ink)] tracking-tight">Profil Karyawan</h1>
-              <p className="text-[var(--ink-3)] text-sm mt-1">Kelola data personal dan karir Anda.</p>
+              <span className="eyebrow">Informasi Diri</span>
+              <h1 className="text-ink">Profil Karyawan</h1>
+              <p className="text-ink-3">Kelola data personal, kontak, riwayat pendidikan, dan berkas identitas Anda.</p>
            </div>
         </div>
 
-        <div className="relative z-20 px-6 -mt-6 w-full max-w-full">
+        <div className="relative z-20 px-6 -mt-6 md:mt-0 w-full max-w-full">
           <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-2 border border-[var(--line)] mb-6 flex overflow-x-auto no-scrollbar snap-x w-full max-w-full justify-between gap-1">
             {TABS.map((tab) => {
               const Icon = tab.icon;

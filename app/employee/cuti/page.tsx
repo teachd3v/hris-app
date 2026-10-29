@@ -17,8 +17,10 @@ import {
   CalendarRange,
   CornerDownRight,
   PlaneTakeoff,
-  Users
+  Users,
+  Home
 } from 'lucide-react';
+import Link from 'next/link';
 import DashboardLayout from '@/components/common/DashboardLayout';
 import { 
   getLeaveRequests, 
@@ -30,26 +32,7 @@ import {
   type LeaveCategory 
 } from './actions';
 
-const EMPLOYEE_MENU = [
-  {
-    label: "Utama",
-    items: [
-      { icon: "👤", label: "Profil Saya", href: "/employee/dashboard" },
-      { icon: "📄", label: "Dokumen", href: "/employee/documents" },
-      { icon: "📋", label: "Asesmen", href: "/employee/assessments" },
-    ],
-  },
-  {
-    label: "Lainnya",
-    items: [
-      { icon: "🏠", label: "Beranda", href: "/employee/beranda", isComingSoon: true },
-      { icon: "⏰", label: "Presensi", href: "/employee/presensi", isComingSoon: true },
-      { icon: "📅", label: "Cuti", href: "/employee/cuti" },
-      { icon: "💰", label: "Payroll", href: "/employee/payroll", isComingSoon: true },
-      { icon: "⚙️", label: "Pengaturan", href: "/employee/settings", isComingSoon: true },
-    ],
-  },
-];
+import { EMPLOYEE_MENU } from "@/lib/navigation";
 
 const LEAVE_TYPES: { key: LeaveCategory; label: string; desc: string; requiresAttachment?: boolean }[] = [
   { key: 'Cuti Tahunan', label: 'Cuti Tahunan (12 Hari/Thn)', desc: 'Mengurangi jatah cuti tahunan reguler.' },
@@ -271,8 +254,27 @@ export default function LeavePage() {
       userInitials={employeeInfo?.name ? employeeInfo.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : 'U'}
       userPhoto={undefined}
       menuSections={EMPLOYEE_MENU}
+      hideTopbar={true}
+      hideBottomNav={true}
+      noPadding={true}
     >
-      <div className="page-head flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div className="flex flex-col min-h-screen md:min-h-0 bg-[var(--bg)] md:bg-transparent pb-8">
+      
+      {/* Mobile Hero Header */}
+      <div className="relative pt-6 pb-24 px-6 bg-[var(--red)] text-white rounded-b-[40px] md:hidden overflow-hidden shadow-md shrink-0">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full blur-[40px] -mr-20 -mt-20"></div>
+        
+        <Link href="/employee/dashboard" className="absolute top-6 left-6 z-20 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full transition-colors">
+          <Home size={18} strokeWidth={2.5} className="text-white" />
+        </Link>
+
+        <div className="relative z-10 text-center flex flex-col items-center mt-2">
+          <h1 className="text-white/90 text-[14px] font-bold tracking-widest uppercase mb-6">Cuti & Izin</h1>
+        </div>
+      </div>
+
+      {/* Desktop Header */}
+      <div className="hidden md:flex page-head flex-col md:flex-row md:items-end justify-between gap-6 px-5 pt-5">
         <div>
           <span className="eyebrow">Manajemen Waktu</span>
           <h1 className="text-ink">Cuti & Izin</h1>
@@ -286,6 +288,22 @@ export default function LeavePage() {
           Buat Pengajuan
         </button>
       </div>
+
+      {/* Mobile Overlapping Card & Content Wrapper */}
+      <div className="relative z-20 px-4 md:px-5 -mt-16 md:mt-0 flex flex-col gap-5">
+        
+        {/* Mobile Overlapping Card */}
+        <div className="md:hidden bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-5 border border-[var(--line)] flex flex-col items-center text-center">
+          <p className="text-[12px] text-[var(--ink-3)] mb-5">Ajukan cuti, izin harian, atau dinas luar kota serta pantau persetujuan atasan.</p>
+          
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-[var(--red)] text-white rounded-full font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-500/20 active:scale-95"
+          >
+            <Plus size={20} strokeWidth={3} />
+            Buat Pengajuan
+          </button>
+        </div>
 
       {loading ? (
         <div className="py-20 flex flex-col items-center justify-center text-center glass rounded-[32px] border-line-2">
@@ -646,6 +664,8 @@ export default function LeavePage() {
           </div>
         </div>
       )}
+      </div>
+    </div>
     </DashboardLayout>
   );
 }

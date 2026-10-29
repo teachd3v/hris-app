@@ -1,17 +1,11 @@
-import { auth } from '@/auth'
+import { requireApprovedUser } from '@/lib/auth-guard'
 import { getDb } from '@/lib/db'
 import { employees, attendances } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
-import { redirect } from 'next/navigation'
 import GridDashboardClient from './GridDashboardClient'
 
 export default async function EmployeeDashboardPage() {
-  const session = await auth()
-  const user = session?.user
-  
-  if (!user || !user.email) {
-    redirect('/')
-  }
+  const { user } = await requireApprovedUser()
 
   const db = getDb()
   const employeeRecords = await db.select({
@@ -19,10 +13,10 @@ export default async function EmployeeDashboardPage() {
     name: employees.name,
     photo_url: employees.photo_url,
     title: employees.title
-  }).from(employees).where(eq(employees.email, user.email)).limit(1)
+  }).from(employees).where(eq(employees.email, user.email!)).limit(1)
 
   const employee = employeeRecords.length > 0 ? employeeRecords[0] : null
-  const name = employee?.name || user.name || user.email.split('@')[0] || 'User'
+  const name = employee?.name || user.name || (user.email || '').split('@')[0] || 'User'
   const initials = name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
   
   let latestAttendance = null;

@@ -11,6 +11,7 @@ export const dummyUserProfile = {
   initials: "",
   photo: undefined as string | undefined,
   email: "",
+  institutional_email: "",
   phone: "",
   nik: "",
   birth: "",

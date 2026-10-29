@@ -5,26 +5,7 @@ import DashboardLayout from "@/components/common/DashboardLayout";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-const EMPLOYEE_MENU = [
-  {
-    label: "Utama",
-    items: [
-      { icon: "👤", label: "Profil Saya", href: "/employee/dashboard" },
-      { icon: "📄", label: "Dokumen", href: "/employee/documents" },
-      { icon: "📋", label: "Asesmen", href: "/employee/assessments" },
-    ],
-  },
-  {
-    label: "Lainnya",
-    items: [
-      { icon: "🏠", label: "Beranda", href: "/employee/beranda", isComingSoon: true },
-      { icon: "⏰", label: "Presensi", href: "/employee/presensi", isComingSoon: true },
-      { icon: "📅", label: "Cuti", href: "/employee/cuti" },
-      { icon: "💰", label: "Payroll", href: "/employee/payroll", isComingSoon: true },
-      { icon: "⚙️", label: "Pengaturan", href: "/employee/settings", isComingSoon: true },
-    ],
-  },
-];
+import { EMPLOYEE_MENU } from "@/lib/navigation";
 
 function ComingSoonContent() {
   const searchParams = useSearchParams();

@@ -8,22 +8,22 @@ export default async function Home() {
   const session = await auth();
   const user = session?.user;
 
+  // Detect mobile device on server
+  const headersList = await headers();
+  const userAgent = headersList.get("user-agent") || "";
+  const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+
   if (user) {
     const ADMIN_EMAILS = ['teachgen2025@gmail.com', 'teach.d3v@gmail.com'];
     const emp = (session as any).employee;
     const isAdmin = emp?.role === 'Admin' || ADMIN_EMAILS.includes(user.email ?? '');
     
-    if (isAdmin) {
+    if (isAdmin && !isMobile) {
       redirect('/admin/employees');
     } else {
       redirect('/employee/dashboard');
     }
   }
-
-  // Detect mobile device on server
-  const headersList = await headers();
-  const userAgent = headersList.get("user-agent") || "";
-  const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
 
   return isMobile ? (
     <MobileLogin />

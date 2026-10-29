@@ -3,7 +3,6 @@ import GoogleProvider from "next-auth/providers/google";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { getDb } from "./lib/db";
 import { users, accounts, sessions, verificationTokens, employees } from "./lib/db/schema";
-import { eq } from "drizzle-orm";
 
 const adapterMethods = [
   "createUser", "getUser", "getUserByEmail", "getUserByAccount",
@@ -27,7 +26,6 @@ for (const method of adapterMethods) {
 }
 
 export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
-  adapter: lazyAdapter,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -35,28 +33,46 @@ export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id;
-        // Verify if user is an employee
-        const db = getDb();
-        const employeeRecord = await db.select().from(employees).where(eq(employees.email, user.email));
-        if (employeeRecord.length > 0) {
-          (session as any).employee = employeeRecord[0];
-          (session.user as any).role = employeeRecord[0].role;
+    async jwt({ token, user }) {
+      if (user?.email) {
+        token.email = user.email;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      const email = token?.email || session?.user?.email;
+      if (session.user && email) {
+        session.user.email = email as string;
+        try {
+          const db = getDb();
+          const userEmail = email.toString().toLowerCase().trim();
+          const empRecords = await db.select().from(employees);
+          const emp = empRecords.find(e => 
+            (e.email || '').toLowerCase().trim() === userEmail ||
+            (e.institutional_email || '').toLowerCase().trim() === userEmail
+          );
+          if (emp) {
+            (session as any).employee = emp;
+            (session.user as any).role = emp.role;
+            (session.user as any).approval_status = emp.approval_status;
+            (session.user as any).profile_completed = emp.profile_completed;
+          } else {
+            // New user — not in employees table yet, will be auto-registered on first access
+            (session.user as any).role = 'Karyawan';
+            (session.user as any).approval_status = 'Pending';
+            (session.user as any).profile_completed = 0;
+          }
+        } catch (e) {
+          console.error("Error attaching employee to session:", e);
         }
       }
       return session;
     },
-    async signIn({ user, account, profile }) {
-      // Optional: Restrict to only allow users who exist in employees table
-      // const db = getDb();
-      // const employeeRecord = await db.select().from(employees).where(eq(employees.email, user.email));
-      // if (employeeRecord.length === 0) return false; // Reject sign in
+    async signIn() {
       return true;
     }
   },
   session: {
-    strategy: "database", // Use database sessions with DrizzleAdapter
+    strategy: "jwt",
   }
 });
