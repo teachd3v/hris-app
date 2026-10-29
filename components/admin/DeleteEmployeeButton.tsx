@@ -22,10 +22,17 @@ export default function DeleteEmployeeButton({ employeeId, employeeName, employe
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const res = await deleteEmployee(employeeId, email, password);
-    if (res.error) {
-      setError(res.error);
-      setLoading(false);
+    try {
+      const res = await deleteEmployee(employeeId, email, password);
+      if (res.error) {
+        setError(res.error);
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // Server error saat render ulang bisa terjadi setelah data terhapus; cek daftar karyawan
+      router.push("/admin/employees");
+      router.refresh();
       return;
     }
     router.push("/admin/employees");
