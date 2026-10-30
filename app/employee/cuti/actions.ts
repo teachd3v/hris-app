@@ -79,7 +79,7 @@ export async function getLeaveRequests(): Promise<LeaveRequest[]> {
 }
 
 // 2. Profil karyawan + jatah cuti per jenis
-export async function getEmployeeLeaveInfo() {
+async function loadEmployeeLeaveInfo() {
   const { db, employee } = await currentEmployee()
 
   let managerName = null
@@ -104,6 +104,18 @@ export async function getEmployeeLeaveInfo() {
     manager_id: employee.manager_id,
     manager_name: managerName,
     dept: employee.dept,
+  }
+}
+
+export type EmployeeLeaveInfo = Awaited<ReturnType<typeof loadEmployeeLeaveInfo>>
+
+// Mengembalikan pesan error (bukan throw) karena Next.js menyembunyikan pesan throw di produksi
+export async function getEmployeeLeaveInfo(): Promise<EmployeeLeaveInfo | { error: string }> {
+  try {
+    return await loadEmployeeLeaveInfo()
+  } catch (e) {
+    console.error('getEmployeeLeaveInfo failed', e)
+    return { error: e instanceof Error ? e.message : 'Kesalahan tidak dikenal' }
   }
 }
 
