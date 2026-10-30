@@ -48,6 +48,7 @@ export default function LeavePage() {
   const [teamLeaves, setTeamLeaves] = useState<LeaveRequest[]>([]);
   const [managerApprovals, setManagerApprovals] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
@@ -67,7 +68,12 @@ export default function LeavePage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const info = await getEmployeeLeaveInfo();
+      if ('error' in info) {
+        setLoadError(info.error);
+        return;
+      }
       setEmployeeInfo(info);
 
       const requests = await getLeaveRequests();
@@ -79,6 +85,7 @@ export default function LeavePage() {
       setManagerApprovals(await getManagerApprovals());
     } catch (err: any) {
       console.error(err);
+      setLoadError('Gagal memuat sebagian data. Muat ulang halaman.');
     } finally {
       setLoading(false);
     }
@@ -279,6 +286,13 @@ export default function LeavePage() {
         </div>
       ) : (
         <>
+          {loadError && (
+            <div role="alert" className="p-4 bg-red-50 border border-red-100 rounded-2xl text-[12px] text-red-800 flex items-start justify-between gap-3">
+              <span><strong>Data cuti gagal dimuat.</strong> {loadError}</span>
+              <button type="button" onClick={() => window.location.reload()} className="shrink-0 px-3 py-1.5 rounded-xl bg-white border border-red-200 font-bold">Muat ulang</button>
+            </div>
+          )}
+
           {/* Quota Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {/* Card 1: Cuti Tersedia */}
