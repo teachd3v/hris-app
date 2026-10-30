@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth-guard";
 import DashboardLayout from "@/components/common/DashboardLayout";
 import Link from "next/link";
+import ManagerSelect from "@/components/admin/ManagerSelect";
+import { isTopLeader } from "@/lib/org";
 import DeleteEmployeeButton from "@/components/admin/DeleteEmployeeButton";
 import ResetPasswordButton from "@/components/admin/ResetPasswordButton";
 import EmployeeProfileTabs from "@/components/admin/EmployeeProfileTabs";
@@ -36,7 +38,8 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     promotions,
     interests,
     emergency,
-    documents
+    documents,
+    allEmployees
   ] = await Promise.all([
     db.select().from(schema.employees).where(eq(schema.employees.id, id)).limit(1),
     db.select().from(schema.family_members).where(eq(schema.family_members.employee_id, id)),
@@ -53,7 +56,8 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     db.select().from(schema.promotion_histories).where(eq(schema.promotion_histories.employee_id, id)).orderBy(desc(schema.promotion_histories.date)),
     db.select().from(schema.career_interests).where(eq(schema.career_interests.employee_id, id)),
     db.select().from(schema.emergency_contacts).where(eq(schema.emergency_contacts.employee_id, id)),
-    db.select().from(schema.employee_documents).where(eq(schema.employee_documents.employee_id, id))
+    db.select().from(schema.employee_documents).where(eq(schema.employee_documents.employee_id, id)),
+    db.select({ id: schema.employees.id, name: schema.employees.name, title: schema.employees.title, dept: schema.employees.dept }).from(schema.employees).orderBy(schema.employees.name)
   ]);
 
   if (employeeRecords.length === 0) notFound();
@@ -116,6 +120,14 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
             )}
           </div>
         </div>
+
+        {/* Atasan Langsung */}
+        <ManagerSelect
+          employeeId={employee.id}
+          currentManagerId={employee.manager_id}
+          isTopLeader={isTopLeader(employee)}
+          candidates={allEmployees.filter((e) => e.id !== employee.id).map((e) => ({ id: e.id, name: e.name || "(tanpa nama)", subtitle: [e.title, e.dept].filter(Boolean).join(" • ") }))}
+        />
 
         {/* Main Content with Tabs */}
         <EmployeeProfileTabs 

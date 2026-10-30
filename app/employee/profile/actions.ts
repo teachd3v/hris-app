@@ -70,7 +70,6 @@ export async function updateEmployeeProfile(section: string, updates: any) {
         status: updates.status,
         join_date: updates.join || null,
         tenure: updates.tenure,
-        manager: updates.manager,
       }).where(eq(schema.employees.id, employeeId))
     } else if (section === 'family') {
       await db.delete(schema.family_members).where(eq(schema.family_members.employee_id, employeeId))

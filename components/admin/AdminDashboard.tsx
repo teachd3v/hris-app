@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Employee } from "@/types/employee";
 import { useRouter } from "next/navigation";
 import { loadScript } from "@/lib/utils/scriptLoader";
 import AddEmployeeModal from "./AddEmployeeModal";
-import { updateEmployeeApprovalStatus } from "@/app/admin/employees/actions";
+import Link from "next/link";
+import { isTopLeader } from "@/lib/org";
+import { updateEmployeeApprovalStatus, autoMatchManagers, type AutoMatchResult } from "@/app/admin/employees/actions";
 
 interface AdminDashboardProps {
   employees: Employee[];
@@ -15,14 +17,31 @@ type ApprovalTab = "Semua" | "Menunggu" | "Disetujui" | "Ditolak";
 
 export default function AdminDashboard({ employees: initialEmployees }: AdminDashboardProps) {
   const [employees, setEmployees] = useState(initialEmployees);
+  // Sinkronkan dengan data server setelah router.refresh() (tambah karyawan, cocokkan atasan, dst.)
+  useEffect(() => { setEmployees(initialEmployees); }, [initialEmployees]);
   const [search, setSearch] = useState("");
   const [selectedDept, setSelectedDept] = useState("Semua");
   const [activeTab, setActiveTab] = useState<ApprovalTab>("Semua");
   const [modalEmp, setModalEmp] = useState<any>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [matching, setMatching] = useState(false);
+  const [matchResult, setMatchResult] = useState<AutoMatchResult | null>(null);
   const [selectedRole, setSelectedRole] = useState<"Karyawan" | "Admin">("Karyawan");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  const withoutManager = employees.filter((e: any) => !e.manager_id && !isTopLeader(e) && (e.approval_status || 'Approved') !== 'Rejected');
+
+  const handleAutoMatch = async () => {
+    setMatching(true);
+    try {
+      const res = await autoMatchManagers();
+      setMatchResult(res);
+      router.refresh();
+    } finally {
+      setMatching(false);
+    }
+  };
 
   const pendingCount = employees.filter(e => (e as any).approval_status === 'Pending').length;
 
@@ -216,6 +235,40 @@ export default function AdminDashboard({ employees: initialEmployees }: AdminDas
           >
             Tinjau Sekarang →
           </button>
+        </div>
+      )}
+
+      {(withoutManager.length > 0 || matchResult) && (
+        <div className="flex flex-col gap-3 px-5 py-4 rounded-2xl" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)' }}>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-2xl">🧭</span>
+            <div>
+              <div className="text-sm font-bold text-indigo-800">
+                {withoutManager.length > 0 ? `${withoutManager.length} karyawan belum punya atasan langsung` : "Semua karyawan sudah punya atasan"}
+              </div>
+              <div className="text-xs text-indigo-700">Karyawan tanpa atasan tidak dapat mengajukan cuti. Atur di halaman detail karyawan, atau cocokkan otomatis dari nama atasan di data lama.</div>
+            </div>
+            {withoutManager.length > 0 && (
+              <button onClick={handleAutoMatch} disabled={matching} className="ml-auto btn btn-primary btn-sm disabled:opacity-60">
+                {matching ? "Mencocokkan..." : "Cocokkan Otomatis"}
+              </button>
+            )}
+          </div>
+          {matchResult && (
+            <div className="text-xs text-indigo-900 flex flex-col gap-1.5" role="status">
+              <div className="font-bold">{matchResult.matched} karyawan berhasil dicocokkan{matchResult.unmatched.length > 0 ? `, ${matchResult.unmatched.length} perlu diatur manual:` : "."}</div>
+              {matchResult.unmatched.length > 0 && (
+                <ul className="max-h-40 overflow-y-auto flex flex-col gap-1">
+                  {matchResult.unmatched.map((u) => (
+                    <li key={u.id}>
+                      <Link href={`/admin/employees/${u.id}`} className="font-semibold underline">{u.name || u.id}</Link>
+                      <span className="text-indigo-700"> — {u.reason}{u.manager ? ` ("${u.manager}")` : ""}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
       )}
 

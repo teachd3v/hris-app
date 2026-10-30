@@ -7,6 +7,7 @@ import * as schema from '@/lib/db/schema'
 import { uploadToStorage, deleteFromStorage } from '@/lib/storage'
 import { validateUpload, DOCUMENT_KINDS, MB } from '@/lib/upload'
 import { getLeaveBalances, type LeaveBalance } from '@/lib/leave-balance'
+import { isTopLeader } from '@/lib/org'
 import { LEAVE_TYPES, LEAVE_TYPE_KEYS, calculateLeaveDuration, parseIsoDate, type LeaveCategory } from '@/lib/leave'
 import { eq, and, desc, asc, inArray, or, lte, gte } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
@@ -128,6 +129,11 @@ export async function createLeaveRequest(formData: FormData): Promise<ActionResu
   const startTime = String(formData.get('start_time') ?? '') || null
   const endTime = String(formData.get('end_time') ?? '') || null
   const file = formData.get('attachment')
+
+  // Semua karyawan wajib punya atasan, kecuali pucuk pimpinan (langsung ke HC)
+  if (!employee.manager_id && !isTopLeader(employee)) {
+    return { error: 'Atasan langsung Anda belum ditetapkan. Hubungi HC/Admin untuk mengaturnya sebelum mengajukan cuti.' }
+  }
 
   const meta = LEAVE_TYPES.find((t) => t.key === leaveType)
   if (!meta || !LEAVE_TYPE_KEYS.includes(leaveType)) return { error: 'Jenis cuti tidak valid' }
