@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Hasil build/preview Cloudflare (berisi bundel hasil generate)
+    ".open-next/**",
+    ".wrangler/**",
     // One-off Node migration scripts (CommonJS)
     "scripts/**",
   ]),
