@@ -11,9 +11,7 @@ import { LEAVE_TYPES, LEAVE_TYPE_KEYS, calculateLeaveDuration, parseIsoDate, typ
 import { eq, and, desc, asc, inArray, or, lte, gte } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
-export type { LeaveCategory }
 export type LeaveStatus = 'PENDING_DIRECT_MANAGER' | 'PENDING_HC_ADMIN' | 'APPROVED' | 'REJECTED';
-export type { LeaveBalance }
 
 export interface LeaveRequest {
   id: string;

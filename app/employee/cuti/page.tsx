@@ -30,10 +30,9 @@ import {
   approveByManager,
   createLeaveRequest, 
   cancelLeaveRequest, 
-  type LeaveRequest, 
-  type LeaveCategory 
+  type LeaveRequest
 } from './actions';
-import { LEAVE_TYPES, calculateLeaveDuration } from '@/lib/leave';
+import { LEAVE_TYPES, calculateLeaveDuration, type LeaveCategory } from '@/lib/leave';
 import ApprovalList from '@/components/cuti/ApprovalList';
 
 import { EMPLOYEE_MENU } from "@/lib/navigation";
