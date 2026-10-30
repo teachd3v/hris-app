@@ -19,6 +19,12 @@ export default async function DashboardPage() {
   const employee = employeeRecords[0]
   const employeeId = employee.id
 
+  let managerName: string | null = null
+  if (employee.manager_id) {
+    const [m] = await db.select({ name: schema.employees.name }).from(schema.employees).where(eq(schema.employees.id, employee.manager_id)).limit(1)
+    managerName = m?.name ?? null
+  }
+
   const [
     family,
     emergencyContacts,
@@ -83,7 +89,7 @@ export default async function DashboardPage() {
     status: employee.status || '-',
     join: employee.join_date || '',
     tenure: employee.tenure || '-',
-    manager: employee.manager || '-',
+    manager: managerName || employee.manager || '-',
     
     bank: employee.bank || '',
     

@@ -79,7 +79,7 @@ export default function EmploymentInfoForm({ formId, defaultValues, onSubmit }: 
       <InputField label="Tanggal Masuk" type="date" {...register("join")} />
       <InputField label="Masa Kerja (Terisi Otomatis)" placeholder="Dihitung otomatis dari Tanggal Masuk" disabled {...register("tenure")} />
       <div className="md:col-span-2">
-        <InputField label="Atasan Langsung" {...register("manager")} />
+        <InputField label="Atasan Langsung (diatur oleh HC)" disabled {...register("manager")} />
       </div>
     </form>
   );

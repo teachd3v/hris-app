@@ -5,6 +5,7 @@ import { getDb } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { eq, or, sql, and, ne } from 'drizzle-orm'
 import { verifyPassword } from '@/lib/password'
+import { isTopLeader, normalizeName } from '@/lib/org'
 import { deleteStoragePrefix } from '@/lib/storage'
 import { revalidatePath } from 'next/cache'
 
@@ -156,4 +157,101 @@ export async function deleteEmployee(
   // Tanpa revalidatePath: halaman detail yang sedang dibuka sudah tidak punya data (notFound),
   // klien yang mengalihkan ke daftar dan me-refresh.
   return {}
+}
+
+type OrgNode = { id: string; manager_id: string | null }
+
+/** Apakah menjadikan managerId sebagai atasan employeeId akan membentuk rantai melingkar? */
+function createsCycle(nodes: Map<string, OrgNode>, employeeId: string, managerId: string) {
+  let cur: string | null = managerId
+  for (let i = 0; cur && i < 1000; i++) {
+    if (cur === employeeId) return true
+    cur = nodes.get(cur)?.manager_id ?? null
+  }
+  return false
+}
+
+/** Tetapkan atasan langsung. Semua karyawan wajib punya atasan kecuali pucuk pimpinan. */
+export async function setEmployeeManager(employeeId: string, managerId: string | null): Promise<{ error?: string }> {
+  await requireAdmin()
+  const db = getDb()
+
+  const all = await db
+    .select({ id: schema.employees.id, name: schema.employees.name, email: schema.employees.email, institutional_email: schema.employees.institutional_email, manager_id: schema.employees.manager_id })
+    .from(schema.employees)
+  const target = all.find((e) => e.id === employeeId)
+  if (!target) return { error: 'Karyawan tidak ditemukan' }
+
+  if (isTopLeader(target)) {
+    if (managerId) return { error: 'Pucuk pimpinan tidak memiliki atasan' }
+    await db.update(schema.employees).set({ manager_id: null, manager: null, updated_at: new Date().toISOString() }).where(eq(schema.employees.id, employeeId))
+    revalidatePath('/admin/employees')
+    return {}
+  }
+
+  if (!managerId) return { error: 'Atasan langsung wajib diisi' }
+  if (managerId === employeeId) return { error: 'Karyawan tidak bisa menjadi atasan dirinya sendiri' }
+  const manager = all.find((e) => e.id === managerId)
+  if (!manager) return { error: 'Atasan tidak ditemukan' }
+  if (createsCycle(new Map(all.map((e) => [e.id, e])), employeeId, managerId)) {
+    return { error: `${manager.name} sudah berada di bawah ${target.name}; atasan tidak boleh melingkar` }
+  }
+
+  await db.update(schema.employees).set({ manager_id: managerId, manager: manager.name, updated_at: new Date().toISOString() }).where(eq(schema.employees.id, employeeId))
+  revalidatePath('/admin/employees')
+  return {}
+}
+
+export interface AutoMatchResult {
+  matched: number
+  unmatched: { id: string; name: string | null; manager: string | null; reason: string }[]
+}
+
+/** Isi manager_id dari nama atasan di kolom teks lama bila cocok persis dengan satu karyawan. */
+export async function autoMatchManagers(): Promise<AutoMatchResult & { error?: string }> {
+  await requireAdmin()
+  const db = getDb()
+
+  const all = await db
+    .select({ id: schema.employees.id, name: schema.employees.name, email: schema.employees.email, institutional_email: schema.employees.institutional_email, manager: schema.employees.manager, manager_id: schema.employees.manager_id })
+    .from(schema.employees)
+  const nodes = new Map(all.map((e) => [e.id, { id: e.id, manager_id: e.manager_id as string | null }]))
+
+  const byName = new Map<string, typeof all>()
+  for (const e of all) {
+    const k = normalizeName(e.name)
+    if (k) byName.set(k, [...(byName.get(k) ?? []), e])
+  }
+
+  const unmatched: AutoMatchResult['unmatched'] = []
+  const updates: { id: string; managerId: string; managerName: string | null }[] = []
+
+  for (const e of all) {
+    if (e.manager_id || isTopLeader(e)) continue
+    const label = (e.manager || '').trim()
+    if (!label || label === '-') {
+      unmatched.push({ id: e.id, name: e.name, manager: null, reason: 'Nama atasan belum terisi' })
+      continue
+    }
+    const candidates = (byName.get(normalizeName(label)) ?? []).filter((c) => c.id !== e.id)
+    if (candidates.length !== 1) {
+      unmatched.push({ id: e.id, name: e.name, manager: label, reason: candidates.length === 0 ? 'Tidak ada karyawan dengan nama itu' : 'Nama atasan cocok dengan lebih dari satu karyawan' })
+      continue
+    }
+    if (createsCycle(nodes, e.id, candidates[0].id)) {
+      unmatched.push({ id: e.id, name: e.name, manager: label, reason: 'Akan membentuk rantai atasan melingkar' })
+      continue
+    }
+    nodes.get(e.id)!.manager_id = candidates[0].id
+    updates.push({ id: e.id, managerId: candidates[0].id, managerName: candidates[0].name })
+  }
+
+  if (updates.length > 0) {
+    const now = new Date().toISOString()
+    await db.batch(updates.map((u) =>
+      db.update(schema.employees).set({ manager_id: u.managerId, manager: u.managerName, updated_at: now }).where(eq(schema.employees.id, u.id)),
+    ) as any)
+    revalidatePath('/admin/employees')
+  }
+  return { matched: updates.length, unmatched }
 }
