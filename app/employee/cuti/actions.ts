@@ -8,6 +8,7 @@ import { uploadToStorage, deleteFromStorage } from '@/lib/storage'
 import { validateUpload, DOCUMENT_KINDS, MB } from '@/lib/upload'
 import { getLeaveBalances, type LeaveBalance } from '@/lib/leave-balance'
 import { isTopLeader } from '@/lib/org'
+import { loadHolidayDates } from '@/lib/holidays'
 import { LEAVE_TYPES, LEAVE_TYPE_KEYS, calculateLeaveDuration, validateLeaveDates, parseIsoDate, type LeaveCategory } from '@/lib/leave'
 import { eq, and, desc, asc, inArray, or, lte, gte } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
@@ -137,13 +138,15 @@ export async function createLeaveRequest(formData: FormData): Promise<ActionResu
 
   const meta = LEAVE_TYPES.find((t) => t.key === leaveType)
   if (!meta || !LEAVE_TYPE_KEYS.includes(leaveType)) return { error: 'Jenis cuti tidak valid' }
-  const dateError = validateLeaveDates(leaveType, startDate, endDate)
+  // Hari libur (nasional / cuti bersama) tidak dihitung sebagai hari kerja
+  const holidays = await loadHolidayDates(db, startDate, endDate)
+  const dateError = validateLeaveDates(leaveType, startDate, endDate, holidays)
   if (dateError) return { error: dateError }
   if (!reason) return { error: 'Alasan wajib diisi' }
   if (reason.length > REASON_MAX) return { error: `Alasan maksimal ${REASON_MAX} karakter` }
 
   // Durasi dihitung server, bukan dari klien
-  const duration = calculateLeaveDuration(leaveType, startDate, endDate)
+  const duration = calculateLeaveDuration(leaveType, startDate, endDate, holidays)
   if (duration > 366) return { error: 'Durasi pengajuan terlalu panjang' }
 
   if (meta.gender && employee.gender && employee.gender !== meta.gender) {
@@ -359,4 +362,15 @@ export async function getTeamApprovedLeaves(): Promise<LeaveRequest[]> {
     .orderBy(asc(schema.leave_requests.start_date))
 
   return rows.map((r) => toRequest(r.req, { employee_name: r.name ?? undefined, employees: { name: r.name, dept: r.dept } } as any))
+}
+
+// 10. Daftar hari libur (untuk keterangan & perhitungan di form pengajuan)
+export async function getHolidays(): Promise<{ date: string; name: string; type: string }[]> {
+  const { db } = await currentEmployee()
+  const year = new Date().getUTCFullYear()
+  return db
+    .select({ date: schema.holidays.date, name: schema.holidays.name, type: schema.holidays.type })
+    .from(schema.holidays)
+    .where(and(gte(schema.holidays.date, `${year - 1}-01-01`), lte(schema.holidays.date, `${year + 2}-12-31`)))
+    .orderBy(asc(schema.holidays.date))
 }

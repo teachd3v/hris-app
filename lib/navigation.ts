@@ -31,6 +31,7 @@ export const ADMIN_MENU: { label: string; items: MenuItem[] }[] = [
       { icon: "⏰", label: "Presensi", href: "/admin/attendance", isComingSoon: true },
       { icon: "📅", label: "Pengajuan Cuti", href: "/admin/leave-requests" },
       { icon: "🗓️", label: "Kuota Cuti", href: "/admin/leave-quotas" },
+      { icon: "🎌", label: "Hari Libur", href: "/admin/holidays" },
       { icon: "💰", label: "Payroll", href: "/admin/payroll", isComingSoon: true },
     ],
   },

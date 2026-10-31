@@ -43,28 +43,38 @@ export function parseIsoDate(s: string): Date | null {
   return isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s ? null : d;
 }
 
-const isWeekend = (d: Date) => d.getUTCDay() === 0 || d.getUTCDay() === 6;
+export type HolidayDates = ReadonlySet<string>;
 
-/** Durasi dalam hari: izin jam-jaman = 1, selain itu hari kerja (Senin-Jumat; Sabtu & Minggu tidak dihitung). */
-export function calculateLeaveDuration(type: LeaveCategory, start: string, end: string): number {
+export const HOLIDAY_TYPES = [
+  { key: 'NATIONAL', label: 'Libur Nasional' },
+  { key: 'JOINT', label: 'Cuti Bersama' },
+] as const;
+
+const isWeekend = (d: Date) => d.getUTCDay() === 0 || d.getUTCDay() === 6;
+const isoOf = (d: Date) => d.toISOString().slice(0, 10);
+/** Hari non-kerja: Sabtu, Minggu, atau tanggal yang terdaftar sebagai hari libur. */
+const isOffDay = (d: Date, holidays?: HolidayDates) => isWeekend(d) || (holidays?.has(isoOf(d)) ?? false);
+
+/** Durasi dalam hari kerja: Senin-Jumat di luar hari libur. Izin jam-jaman = 1 (satu tanggal kerja). */
+export function calculateLeaveDuration(type: LeaveCategory, start: string, end: string, holidays?: HolidayDates): number {
   const s = parseIsoDate(start);
   const e = parseIsoDate(end);
   if (!s || !e || s > e) return 0;
 
   if (type === 'Izin Terlambat' || type === 'Izin Pulang Cepat') {
     // Izin per jam: hanya satu tanggal, dan harus hari kerja
-    return s.getTime() === e.getTime() && !isWeekend(s) ? 1 : 0;
+    return s.getTime() === e.getTime() && !isOffDay(s, holidays) ? 1 : 0;
   }
 
   let days = 0;
   for (const d = new Date(s); d <= e; d.setUTCDate(d.getUTCDate() + 1)) {
-    if (!isWeekend(d)) days++;
+    if (!isOffDay(d, holidays)) days++;
   }
   return days;
 }
 
 /** Validasi tanggal pengajuan; mengembalikan pesan error atau null. Dipakai klien dan server. */
-export function validateLeaveDates(type: LeaveCategory, start: string, end: string): string | null {
+export function validateLeaveDates(type: LeaveCategory, start: string, end: string, holidays?: HolidayDates): string | null {
   const s = parseIsoDate(start);
   const e = parseIsoDate(end);
   if (!s || !e) return 'Format tanggal tidak valid';
@@ -74,10 +84,24 @@ export function validateLeaveDates(type: LeaveCategory, start: string, end: stri
   if (meta?.timeBased) {
     if (start !== end) return `${meta.label} hanya dapat diajukan untuk satu tanggal`;
     if (isWeekend(s)) return `${meta.label} tidak dapat diajukan pada hari Sabtu atau Minggu`;
+    if (isOffDay(s, holidays)) return `${meta.label} tidak dapat diajukan pada hari libur`;
     return null;
   }
-  if (calculateLeaveDuration(type, start, end) <= 0) {
-    return 'Rentang tanggal hanya berisi Sabtu/Minggu. Pilih tanggal yang mencakup hari kerja';
+  if (calculateLeaveDuration(type, start, end, holidays) <= 0) {
+    return 'Rentang tanggal hanya berisi Sabtu/Minggu atau hari libur. Pilih tanggal yang mencakup hari kerja';
   }
   return null;
+}
+
+/** Hari libur yang jatuh di hari kerja pada rentang ini (untuk keterangan di form). */
+export function holidaysInRange(start: string, end: string, holidays: ReadonlyMap<string, { name: string }>) {
+  const s = parseIsoDate(start);
+  const e = parseIsoDate(end);
+  if (!s || !e || s > e) return [];
+  const out: { date: string; name: string }[] = [];
+  for (const d = new Date(s); d <= e; d.setUTCDate(d.getUTCDate() + 1)) {
+    const h = holidays.get(isoOf(d));
+    if (h && !isWeekend(d)) out.push({ date: isoOf(d), name: h.name });
+  }
+  return out;
 }

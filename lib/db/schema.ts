@@ -245,6 +245,14 @@ export const employee_credentials = sqliteTable("employee_credentials", {
   locked_until: text("locked_until"),
 });
 
+// Hari libur: tidak dihitung sebagai hari kerja pada pengajuan cuti. Satu baris per tanggal.
+export const holidays = sqliteTable("holidays", {
+  date: text("date").primaryKey(), // YYYY-MM-DD
+  name: text("name").notNull(),
+  type: text("type").notNull(), // 'NATIONAL' (Libur Nasional) | 'JOINT' (Cuti Bersama)
+  created_at: text("created_at"),
+});
+
 // Jatah cuti per karyawan, per jenis, per tahun. Tidak ada baris = pakai nilai default (lihat lib/leave-balance.ts).
 export const leave_quotas = sqliteTable("leave_quotas", {
   employee_id: text("employee_id").notNull(),
