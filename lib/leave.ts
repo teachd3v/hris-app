@@ -43,18 +43,41 @@ export function parseIsoDate(s: string): Date | null {
   return isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s ? null : d;
 }
 
+const isWeekend = (d: Date) => d.getUTCDay() === 0 || d.getUTCDay() === 6;
+
 /** Durasi dalam hari: izin jam-jaman = 1, selain itu hari kerja (Senin-Jumat; Sabtu & Minggu tidak dihitung). */
 export function calculateLeaveDuration(type: LeaveCategory, start: string, end: string): number {
   const s = parseIsoDate(start);
   const e = parseIsoDate(end);
   if (!s || !e || s > e) return 0;
 
-  if (type === 'Izin Terlambat' || type === 'Izin Pulang Cepat') return 1;
+  if (type === 'Izin Terlambat' || type === 'Izin Pulang Cepat') {
+    // Izin per jam: hanya satu tanggal, dan harus hari kerja
+    return s.getTime() === e.getTime() && !isWeekend(s) ? 1 : 0;
+  }
 
   let days = 0;
   for (const d = new Date(s); d <= e; d.setUTCDate(d.getUTCDate() + 1)) {
-    const dow = d.getUTCDay();
-    if (dow !== 0 && dow !== 6) days++;
+    if (!isWeekend(d)) days++;
   }
   return days;
+}
+
+/** Validasi tanggal pengajuan; mengembalikan pesan error atau null. Dipakai klien dan server. */
+export function validateLeaveDates(type: LeaveCategory, start: string, end: string): string | null {
+  const s = parseIsoDate(start);
+  const e = parseIsoDate(end);
+  if (!s || !e) return 'Format tanggal tidak valid';
+  if (e < s) return 'Tanggal akhir harus setelah atau sama dengan tanggal mulai';
+
+  const meta = LEAVE_TYPES.find((t) => t.key === type);
+  if (meta?.timeBased) {
+    if (start !== end) return `${meta.label} hanya dapat diajukan untuk satu tanggal`;
+    if (isWeekend(s)) return `${meta.label} tidak dapat diajukan pada hari Sabtu atau Minggu`;
+    return null;
+  }
+  if (calculateLeaveDuration(type, start, end) <= 0) {
+    return 'Rentang tanggal hanya berisi Sabtu/Minggu. Pilih tanggal yang mencakup hari kerja';
+  }
+  return null;
 }

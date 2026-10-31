@@ -8,7 +8,7 @@ import { uploadToStorage, deleteFromStorage } from '@/lib/storage'
 import { validateUpload, DOCUMENT_KINDS, MB } from '@/lib/upload'
 import { getLeaveBalances, type LeaveBalance } from '@/lib/leave-balance'
 import { isTopLeader } from '@/lib/org'
-import { LEAVE_TYPES, LEAVE_TYPE_KEYS, calculateLeaveDuration, parseIsoDate, type LeaveCategory } from '@/lib/leave'
+import { LEAVE_TYPES, LEAVE_TYPE_KEYS, calculateLeaveDuration, validateLeaveDates, parseIsoDate, type LeaveCategory } from '@/lib/leave'
 import { eq, and, desc, asc, inArray, or, lte, gte } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
@@ -137,14 +137,13 @@ export async function createLeaveRequest(formData: FormData): Promise<ActionResu
 
   const meta = LEAVE_TYPES.find((t) => t.key === leaveType)
   if (!meta || !LEAVE_TYPE_KEYS.includes(leaveType)) return { error: 'Jenis cuti tidak valid' }
-  if (!parseIsoDate(startDate) || !parseIsoDate(endDate)) return { error: 'Format tanggal tidak valid' }
-  if (endDate < startDate) return { error: 'Tanggal akhir harus setelah atau sama dengan tanggal mulai' }
+  const dateError = validateLeaveDates(leaveType, startDate, endDate)
+  if (dateError) return { error: dateError }
   if (!reason) return { error: 'Alasan wajib diisi' }
   if (reason.length > REASON_MAX) return { error: `Alasan maksimal ${REASON_MAX} karakter` }
 
   // Durasi dihitung server, bukan dari klien
   const duration = calculateLeaveDuration(leaveType, startDate, endDate)
-  if (duration <= 0) return { error: 'Rentang tanggal tidak mencakup hari kerja' }
   if (duration > 366) return { error: 'Durasi pengajuan terlalu panjang' }
 
   if (meta.gender && employee.gender && employee.gender !== meta.gender) {
