@@ -19,6 +19,7 @@ Berjalan penuh di ekosistem **Cloudflare** — produksi: <https://hrteach.site>.
 
 - **Karyawan** — mengelola profil/dokumen sendiri, presensi, mengajukan cuti, mengisi asesmen.
 - **Atasan langsung** — setiap karyawan wajib punya atasan (`employees.manager_id`) kecuali pucuk pimpinan (Haryo Mojopahit). Atasan menyetujui cuti bawahan di tahap pertama.
+- **Hari libur** — admin mengelola libur nasional dan cuti bersama di menu *Hari Libur*; tanggal itu (selain Sabtu/Minggu) tidak dihitung sebagai hari kerja pada pengajuan cuti baru.
 - **Admin / HC** — setiap admin adalah HC: persetujuan akhir cuti, jatah cuti, atasan, tambah/reset/hapus karyawan. Admin = `employees.role = 'Admin'` **atau** email ada di `lib/admins.ts`.
 - **Super admin** — `hudagraph@gmail.com` (lihat `lib/admins.ts`). Satu-satunya yang boleh memberi/mencabut peran admin serta mengubah, mereset, dan menghapus akun admin lain. Akun super admin tidak dapat diubah siapa pun dari panel.
 
@@ -45,7 +46,7 @@ Siapkan D1 lokal (berkas migrasi berurutan, lihat bagian Migrasi) lalu isi satu 
 ```bash
 for f in 0000_strong_the_leader 0001_acoustic_silver_fox 0002_strange_scrambler \
          0003_employee_credentials 0004_leave_quotas 0005_attendance_unique \
-         0006_unique_emails 0007_drop_google_auth_tables; do
+         0006_unique_emails 0007_drop_google_auth_tables 0008_holidays; do
   npx wrangler d1 execute hris-teachapp-db --local --file=drizzle/$f.sql
 done
 
@@ -74,7 +75,7 @@ Migrasi ada di `drizzle/` dan dijalankan **manual** dengan `wrangler d1 execute 
 npx wrangler d1 execute hris-teachapp-db --remote --file=drizzle/<berkas>.sql
 ```
 
-Urutan untuk database baru: `0000` → `0007`. Berkas `custom_migration_institutional_email.sql` adalah sisa lama (sudah tercakup `0002`), **jangan** dijalankan di database baru. `drizzle/manual/` berisi SQL pendukung:
+Urutan untuk database baru: `0000` → `0008`. Berkas `custom_migration_institutional_email.sql` adalah sisa lama (sudah tercakup `0002`), **jangan** dijalankan di database baru. `drizzle/manual/` berisi SQL pendukung:
 
 - `check_duplicates.sql` — jalankan sebelum menambah indeks unik (`0005`, `0006`).
 - `create_leave_requests.sql` — membuat `leave_requests` bila belum ada (database lama).
@@ -94,7 +95,7 @@ Setelah deploy: pastikan akses publik (`r2.dev`) bucket `hris-teachapp-storage` 
 ## Struktur
 
 ```
-app/admin/*          halaman admin (karyawan, asesmen, pengajuan cuti, kuota cuti)
+app/admin/*          halaman admin (karyawan, asesmen, pengajuan cuti, kuota cuti, hari libur)
 app/employee/*       halaman karyawan (dashboard, profil, presensi, cuti, dokumen, asesmen)
 app/storage/*        route file R2 (wajib login, cek kepemilikan)
 auth.ts              NextAuth (Credentials + JWT)

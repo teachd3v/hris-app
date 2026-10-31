@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Calendar as CalendarIcon, 
@@ -27,12 +27,13 @@ import {
   getEmployeeLeaveInfo, 
   getTeamApprovedLeaves, 
   getManagerApprovals,
+  getHolidays,
   approveByManager,
   createLeaveRequest, 
   cancelLeaveRequest, 
   type LeaveRequest
 } from './actions';
-import { LEAVE_TYPES, calculateLeaveDuration, validateLeaveDates, type LeaveCategory } from '@/lib/leave';
+import { LEAVE_TYPES, calculateLeaveDuration, validateLeaveDates, holidaysInRange, type LeaveCategory } from '@/lib/leave';
 import ApprovalList from '@/components/cuti/ApprovalList';
 
 import { EMPLOYEE_MENU } from "@/lib/navigation";
@@ -46,6 +47,7 @@ export default function LeavePage() {
   const [employeeInfo, setEmployeeInfo] = useState<any>(null);
   const [teamLeaves, setTeamLeaves] = useState<LeaveRequest[]>([]);
   const [managerApprovals, setManagerApprovals] = useState<LeaveRequest[]>([]);
+  const [holidayList, setHolidayList] = useState<{ date: string; name: string; type: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -82,6 +84,7 @@ export default function LeavePage() {
       setTeamLeaves(team);
 
       setManagerApprovals(await getManagerApprovals());
+      setHolidayList(await getHolidays());
     } catch (err: any) {
       console.error(err);
       setLoadError('Gagal memuat sebagian data. Muat ulang halaman.');
@@ -94,13 +97,15 @@ export default function LeavePage() {
     fetchData();
   }, [fetchData]);
 
+  const holidayMap = useMemo(() => new Map(holidayList.map((h) => [h.date, h])), [holidayList]);
+  const holidaySet = useMemo(() => new Set(holidayList.map((h) => h.date)), [holidayList]);
   const calculateDuration = calculateLeaveDuration;
 
   // Update duration whenever date ranges change
   useEffect(() => {
-    const days = calculateDuration(selectedType, startDate, endDate);
+    const days = calculateDuration(selectedType, startDate, endDate, holidaySet);
     setDurationDays(days);
-  }, [selectedType, startDate, endDate]);
+  }, [selectedType, startDate, endDate, holidaySet]);
 
   // Handle new submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -113,7 +118,7 @@ export default function LeavePage() {
       return;
     }
 
-    const dateError = validateLeaveDates(selectedType, startDate, endDate);
+    const dateError = validateLeaveDates(selectedType, startDate, endDate, holidaySet);
     if (dateError) {
       setFormError(dateError);
       return;
@@ -557,6 +562,15 @@ export default function LeavePage() {
                 <span className="text-[11px] font-bold text-ink-3 uppercase tracking-wider">Total Hari Terhitung:</span>
                 <span className="text-[16px] font-black text-ink">{durationDays} Hari Kerja</span>
               </div>
+              {(() => {
+                const inRange = holidaysInRange(startDate, endDate, holidayMap);
+                if (inRange.length === 0) return null;
+                return (
+                  <p className="text-[11px] text-ink-3 font-medium -mt-3 px-1" data-testid="holiday-hint">
+                    Tidak dihitung (libur): {inRange.map((h) => `${new Date(h.date + 'T00:00:00Z').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: 'UTC' })} ${h.name}`).join(', ')}
+                  </p>
+                );
+              })()}
 
               {/* Izin Terlambat / Pulang Cepat Details */}
               {(selectedType === 'Izin Terlambat' || selectedType === 'Izin Pulang Cepat') && (
