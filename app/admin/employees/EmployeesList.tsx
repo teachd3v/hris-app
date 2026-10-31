@@ -8,7 +8,7 @@ import { inArray } from 'drizzle-orm'
 import { ADMIN_MENU } from "@/lib/navigation";
 
 export default async function AdminEmployeesPage() {
-  const { user, profile } = await requireAdmin();
+  const { user, profile, isSuperAdmin } = await requireAdmin();
   const db = getDb();
 
   const employeesData = await db.select().from(schema.employees);
@@ -98,7 +98,7 @@ export default async function AdminEmployeesPage() {
       userPhoto={profile?.photo_url ?? undefined}
       menuSections={ADMIN_MENU}
     >
-      <AdminDashboard employees={employees as any} />
+      <AdminDashboard employees={employees as any} isSuperAdmin={isSuperAdmin} />
     </DashboardLayout>
   );
 }

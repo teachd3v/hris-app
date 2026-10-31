@@ -6,6 +6,7 @@ import * as schema from '@/lib/db/schema'
 import { eq, or, sql, and, ne } from 'drizzle-orm'
 import { verifyPassword } from '@/lib/password'
 import { isTopLeader, normalizeName } from '@/lib/org'
+import { isAdminEmployee, isSuperAdminEmployee } from '@/lib/admins'
 import { deleteStoragePrefix } from '@/lib/storage'
 import { revalidatePath } from 'next/cache'
 
@@ -13,9 +14,21 @@ export async function updateEmployeeApprovalStatus(
   employeeId: string,
   approvalStatus: 'Approved' | 'Rejected' | 'Pending',
   role?: 'Karyawan' | 'Admin'
-) {
-  await requireAdmin()
+): Promise<{ error?: string }> {
+  const { isSuperAdmin } = await requireAdmin()
   const db = getDb()
+
+  const [target] = await db.select().from(schema.employees).where(eq(schema.employees.id, employeeId)).limit(1)
+  if (!target) return { error: 'Karyawan tidak ditemukan' }
+
+  // Akun admin hanya boleh dikelola super admin; memberi/mencabut peran Admin juga hanya super admin
+  if (!isSuperAdmin && (isAdminEmployee(target) || role === 'Admin')) {
+    return { error: 'Hanya super admin yang dapat mengelola akun atau peran admin' }
+  }
+  if (role && role !== 'Karyawan' && role !== 'Admin') return { error: 'Role tidak valid' }
+  if (isSuperAdminEmployee(target) && (approvalStatus !== 'Approved' || (role && role !== 'Admin'))) {
+    return { error: 'Akun super admin tidak dapat diubah' }
+  }
 
   const updates: Record<string, any> = {
     approval_status: approvalStatus,
@@ -29,6 +42,7 @@ export async function updateEmployeeApprovalStatus(
     .where(eq(schema.employees.id, employeeId))
 
   revalidatePath('/admin/employees')
+  return {}
 }
 
 /** Admin membuat akun karyawan baru: langsung Approved, password default berlaku. */
@@ -72,11 +86,13 @@ export async function createEmployee(input: {
 
 /** Kembalikan password karyawan ke password default dan buka kunci akun. Sesi aktifnya ikut dicabut. */
 export async function resetEmployeePassword(employeeId: string): Promise<{ error?: string }> {
-  await requireAdmin()
+  const { isSuperAdmin } = await requireAdmin()
   const db = getDb()
 
-  const [emp] = await db.select({ id: schema.employees.id }).from(schema.employees).where(eq(schema.employees.id, employeeId)).limit(1)
+  const [emp] = await db.select().from(schema.employees).where(eq(schema.employees.id, employeeId)).limit(1)
   if (!emp) return { error: 'Karyawan tidak ditemukan' }
+  if (isSuperAdminEmployee(emp)) return { error: 'Password super admin hanya dapat diubah oleh pemiliknya sendiri' }
+  if (!isSuperAdmin && isAdminEmployee(emp)) return { error: 'Hanya super admin yang dapat mereset password admin' }
 
   const patch = {
     password_hash: null,
@@ -102,13 +118,16 @@ export async function deleteEmployee(
   confirmEmail: string,
   adminPassword: string,
 ): Promise<{ error?: string }> {
-  const { profile: admin } = await requireAdmin()
+  const { profile: admin, isSuperAdmin } = await requireAdmin()
   if (!admin) return { error: 'Not authenticated' }
   if (admin.id === employeeId) return { error: 'Anda tidak dapat menghapus akun Anda sendiri' }
 
   const db = getDb()
   const [target] = await db.select().from(schema.employees).where(eq(schema.employees.id, employeeId)).limit(1)
   if (!target) return { error: 'Karyawan tidak ditemukan' }
+
+  if (isSuperAdminEmployee(target)) return { error: 'Akun super admin tidak dapat dihapus' }
+  if (!isSuperAdmin && isAdminEmployee(target)) return { error: 'Hanya super admin yang dapat menghapus akun admin' }
 
   const expected = (target.email || target.institutional_email || '').trim().toLowerCase()
   if (!expected || confirmEmail.trim().toLowerCase() !== expected) {
