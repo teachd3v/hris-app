@@ -3,15 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchAttendanceData, submitAttendance } from './actions';
 import { MapPin, Camera, Clock, CheckCircle, AlertCircle, Loader2, Navigation2, Smartphone, Lock, ShieldAlert } from 'lucide-react';
-import { getDistanceFromLatLonInKm } from '@/lib/geo';
+import { getDistanceFromLatLonInKm, OFFICE_LAT, OFFICE_LNG, MAX_RADIUS_KM } from '@/lib/geo';
 import { useRouter } from 'next/navigation';
 
 import DashboardLayout from '@/components/common/DashboardLayout';
 import { EMPLOYEE_MENU } from '@/lib/navigation';
-
-const OFFICE_LAT = -6.4733643;
-const OFFICE_LNG = 106.7274949;
-const MAX_RADIUS_KM = 1.0;
 
 export default function AttendancePage() {
   const router = useRouter();

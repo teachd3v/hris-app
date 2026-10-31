@@ -28,17 +28,9 @@ export default function Topbar({
     const fetchRole = async () => {
       const session = await getSession();
       if (session?.user) {
-        const empRole = (session as any)?.employee?.role || (session?.user as any)?.role;
-        const ADMIN_EMAILS = ['teachgen2025@gmail.com', 'teach.d3v@gmail.com', 'hudagraph@gmail.com'];
-        const isAdmin = empRole === 'Admin' || ADMIN_EMAILS.includes(session.user.email ?? '') || role === 'Admin';
-        
-        console.log("Topbar Auth Check:", { 
-          email: session.user.email, 
-          empRole,
-          isAdmin,
-          currentPageRole: role 
-        });
-        
+        // Flag dihitung di server (lib/admins.ts); klien tidak punya daftar sendiri
+        const isAdmin = Boolean((session.user as any).isAdmin);
+
         if (isAdmin) {
           setActualRole('Admin');
         } else {

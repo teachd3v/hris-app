@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, numeric, primaryKey } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, numeric, primaryKey, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const achievements = sqliteTable("achievements", {
   id: text("id").primaryKey(),
@@ -37,7 +37,10 @@ export const attendances = sqliteTable("attendances", {
   face_match_score: text("face_match_score"),
   status: text("status"),
   created_at: text("created_at"),
-});
+}, (t) => ({
+  // Satu catatan presensi per karyawan per hari
+  employeeDateUnique: uniqueIndex("attendances_employee_date_unique").on(t.employee_id, t.date),
+}));
 
 export const career_interests = sqliteTable("career_interests", {
   id: text("id").primaryKey(),

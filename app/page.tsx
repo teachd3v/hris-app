@@ -14,10 +14,8 @@ export default async function Home() {
   const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
 
   if (user) {
-    const ADMIN_EMAILS = ['teachgen2025@gmail.com', 'teach.d3v@gmail.com'];
-    const emp = (session as any).employee;
-    const isAdmin = emp?.role === 'Admin' || ADMIN_EMAILS.includes(user.email ?? '');
-    
+    const isAdmin = Boolean((user as any).isAdmin);
+
     if (isAdmin && !isMobile) {
       redirect('/admin/employees');
     } else {
