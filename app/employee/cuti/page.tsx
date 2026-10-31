@@ -234,7 +234,7 @@ export default function LeavePage() {
     <div className="flex flex-col min-h-screen md:min-h-0 bg-[var(--bg)] md:bg-transparent pb-8">
       
       {/* Mobile Hero Header */}
-      <div className="relative pt-6 pb-24 px-6 bg-[var(--red)] text-white rounded-b-[40px] md:hidden overflow-hidden shadow-md shrink-0">
+      <div className="relative pt-5 pb-14 px-6 bg-[var(--red)] text-white rounded-b-[40px] md:hidden overflow-hidden shadow-md shrink-0">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full blur-[40px] -mr-20 -mt-20"></div>
         
         <Link href="/employee/dashboard" className="absolute top-6 left-6 z-20 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full transition-colors">
@@ -242,7 +242,7 @@ export default function LeavePage() {
         </Link>
 
         <div className="relative z-10 text-center flex flex-col items-center mt-2">
-          <h1 className="text-white/90 text-[14px] font-bold tracking-widest uppercase mb-6">Cuti & Izin</h1>
+          <h1 className="text-white/90 text-[14px] font-bold tracking-widest uppercase mb-2">Cuti & Izin</h1>
         </div>
       </div>
 
@@ -263,15 +263,13 @@ export default function LeavePage() {
       </div>
 
       {/* Mobile Overlapping Card & Content Wrapper */}
-      <div className="relative z-20 px-4 md:px-5 -mt-16 md:mt-0 flex flex-col gap-5">
+      <div className="relative z-20 px-4 md:px-5 -mt-8 md:mt-0 flex flex-col gap-3 md:gap-5">
         
         {/* Mobile Overlapping Card */}
-        <div className="md:hidden bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-5 border border-[var(--line)] flex flex-col items-center text-center">
-          <p className="text-[12px] text-[var(--ink-3)] mb-5">Ajukan cuti, izin harian, atau dinas luar kota serta pantau persetujuan atasan.</p>
-          
+        <div className="md:hidden bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-3 border border-[var(--line)] flex flex-col items-center text-center">
           <button
             onClick={() => setIsModalOpen(true)}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-[var(--red)] text-white rounded-full font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-500/20 active:scale-95"
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-[var(--red)] text-white rounded-full font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-500/20 active:scale-95"
           >
             <Plus size={20} strokeWidth={3} />
             Buat Pengajuan
@@ -292,66 +290,35 @@ export default function LeavePage() {
             </div>
           )}
 
-          {/* Quota Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {/* Card 1: Cuti Tersedia */}
-            <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.03)] p-5 border border-[var(--line)] flex items-center gap-4 hover:shadow-md transition-all">
-              <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 shadow-inner shrink-0">
-                <CheckCircle2 size={24} />
+          {/* Ringkasan jatah: 2 kolom ringkas */}
+          <div className="grid grid-cols-2 gap-3 md:gap-5">
+            <div className="bg-white rounded-[20px] md:rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.03)] p-3 md:p-5 border border-[var(--line)] flex items-center gap-3 md:gap-4">
+              <div className="w-9 h-9 md:w-12 md:h-12 bg-green-50 rounded-xl md:rounded-2xl flex items-center justify-center text-green-600 shadow-inner shrink-0">
+                <CheckCircle2 className="w-[18px] h-[18px] md:w-6 md:h-6" />
               </div>
-              <div>
-                <p className="text-[10px] text-[var(--ink-3)] font-bold uppercase tracking-wider">Cuti Tersedia</p>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-2xl font-black text-ink">{employeeInfo?.leave_available}</span>
-                  <span className="text-[12px] font-bold text-ink-3">Hari</span>
+              <div className="min-w-0">
+                <p className="text-[10px] text-[var(--ink-3)] font-bold uppercase tracking-wider">Cuti</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl md:text-2xl font-black text-ink">{employeeInfo?.leave_available}</span>
+                  <span className="text-[12px] md:text-[14px] font-bold text-ink-3">/ {employeeInfo?.leave_total}</span>
+                  <span className="text-[11px] font-bold text-ink-3">Hari</span>
                 </div>
               </div>
             </div>
 
-            {/* Card 2: Cuti Terpakai */}
-            <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.03)] p-5 border border-[var(--line)] flex items-center gap-4 hover:shadow-md transition-all">
-              <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-[var(--red)] shadow-inner shrink-0">
-                <Clock size={24} />
+            <div className="bg-white rounded-[20px] md:rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.03)] p-3 md:p-5 border border-[var(--line)] flex items-center gap-3 md:gap-4">
+              <div className="w-9 h-9 md:w-12 md:h-12 bg-indigo-50 rounded-xl md:rounded-2xl flex items-center justify-center text-indigo-600 shadow-inner shrink-0">
+                <CalendarRange className="w-[18px] h-[18px] md:w-6 md:h-6" />
               </div>
-              <div>
-                <p className="text-[10px] text-[var(--ink-3)] font-bold uppercase tracking-wider">Cuti Terpakai</p>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-2xl font-black text-ink">{employeeInfo?.leave_used}</span>
-                  <span className="text-[12px] font-bold text-ink-3">Hari</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 3: Kuota Ganti Hari */}
-            <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.03)] p-5 border border-[var(--line)] flex items-center gap-4 hover:shadow-md transition-all">
-              <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shadow-inner shrink-0">
-                <CalendarRange size={24} />
-              </div>
-              <div>
-                <p className="text-[10px] text-[var(--ink-3)] font-bold uppercase tracking-wider">Kompensasi Ganti Hari</p>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-2xl font-black text-ink">{employeeInfo?.leave_ganti_hari}</span>
-                  <span className="text-[12px] font-bold text-ink-3">Hari</span>
+              <div className="min-w-0">
+                <p className="text-[10px] text-[var(--ink-3)] font-bold uppercase tracking-wider">Ganti Hari</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl md:text-2xl font-black text-ink">{employeeInfo?.leave_ganti_hari}</span>
+                  <span className="text-[11px] font-bold text-ink-3">Hari</span>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Jatah per jenis */}
-          {employeeInfo?.balances?.some((b: any) => b.quota !== null) && (
-            <div className="bg-white rounded-[24px] border border-[var(--line)] p-5">
-              <h3 className="text-[13px] font-black text-ink mb-3">Jatah Cuti Anda ({new Date().getFullYear()})</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {employeeInfo.balances.filter((b: any) => b.quota !== null).map((b: any) => (
-                  <div key={b.type} className="rounded-xl border border-line-2 p-3">
-                    <p className="text-[10px] font-bold text-ink-3 uppercase tracking-wider">{b.type}</p>
-                    <p className="text-[18px] font-black text-ink mt-1">{Math.max(b.remaining, 0)}<span className="text-[11px] font-bold text-ink-3"> / {b.quota} hari</span></p>
-                    {b.pending > 0 && <p className="text-[10px] text-orange-600 font-bold mt-0.5">{b.pending} hari menunggu</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Persetujuan bawahan (khusus atasan) */}
           {managerApprovals.length > 0 && (
