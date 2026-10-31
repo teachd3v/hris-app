@@ -3,6 +3,9 @@
 	"main": ".open-next/worker.js",
 	"name": "teach-hris-app",
 	"compatibility_date": "2026-08-01",
+	// Akses hanya lewat domain kustom di bawah (workers.dev & preview URL dimatikan eksplisit)
+	"workers_dev": false,
+	"preview_urls": false,
 	"compatibility_flags": [
 		"nodejs_compat",
 		"global_fetch_strictly_public"

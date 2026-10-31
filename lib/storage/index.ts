@@ -1,93 +1,37 @@
-import { AwsClient } from "aws4fetch";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-export const BUCKET_NAME = "hris-teachapp-storage";
-
-export function getStorageClient() {
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-
-  if (!accountId || !accessKeyId || !secretAccessKey) {
-    throw new Error("Missing R2 credentials in environment variables");
-  }
-
-  return new AwsClient({
-    accessKeyId,
-    secretAccessKey,
-    service: "s3",
-    region: "auto",
-  });
+// Penyimpanan file memakai binding R2 `STORAGE` (lihat wrangler.jsonc).
+// Tipe minimal agar tidak perlu @cloudflare/workers-types.
+interface R2BucketLike {
+  put(key: string, body: ArrayBuffer | Blob, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+  delete(keys: string | string[]): Promise<void>;
+  list(options: { prefix?: string; cursor?: string; limit?: number }): Promise<{ objects: { key: string }[]; truncated: boolean; cursor?: string }>;
 }
 
-export async function uploadToStorage(key: string, buffer: Buffer | ArrayBuffer | Blob, contentType: string) {
-  try {
-    const { env } = getCloudflareContext() as any;
-    if (env?.STORAGE) {
-      await env.STORAGE.put(key, buffer, {
-        httpMetadata: { contentType }
-      });
-      return;
-    }
-  } catch (e) {
-    console.warn("Native R2 binding env.STORAGE not available, attempting S3 API fallback...", e);
-  }
+function getBucket(): R2BucketLike {
+  const { env } = getCloudflareContext() as unknown as { env?: { STORAGE?: R2BucketLike } };
+  if (!env?.STORAGE) throw new Error('R2 binding "STORAGE" is not defined');
+  return env.STORAGE;
+}
 
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const aws = getStorageClient();
-  const url = `https://${accountId}.r2.cloudflarestorage.com/${BUCKET_NAME}/${key}`;
-  
-  const response = await aws.fetch(url, {
-    method: 'PUT',
-    body: buffer as any,
-    headers: {
-      'Content-Type': contentType
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Upload failed: ${response.statusText}`);
-  }
-  return response;
+export async function uploadToStorage(key: string, body: ArrayBuffer | Blob, contentType: string) {
+  await getBucket().put(key, body, { httpMetadata: { contentType } });
 }
 
 export async function deleteFromStorage(key: string) {
-  try {
-    const { env } = getCloudflareContext() as any;
-    if (env?.STORAGE) {
-      await env.STORAGE.delete(key);
-      return;
-    }
-  } catch (e) {
-    console.warn("Native R2 binding env.STORAGE not available, attempting S3 API fallback...", e);
-  }
-
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const aws = getStorageClient();
-  const url = `https://${accountId}.r2.cloudflarestorage.com/${BUCKET_NAME}/${key}`;
-  
-  const response = await aws.fetch(url, {
-    method: 'DELETE'
-  });
-
-  if (!response.ok) {
-    throw new Error(`Delete failed: ${response.statusText}`);
-  }
-  return response;
+  await getBucket().delete(key);
 }
 
-/** Hapus semua objek dengan prefix tertentu lewat binding R2. Mengembalikan jumlah objek terhapus. */
+/** Hapus semua objek dengan prefix tertentu. Mengembalikan jumlah objek terhapus. */
 export async function deleteStoragePrefix(prefix: string) {
-  const { env } = getCloudflareContext() as any;
-  if (!env?.STORAGE) throw new Error("Native R2 binding env.STORAGE not available");
-
+  const bucket = getBucket();
   let deleted = 0;
   let cursor: string | undefined;
   do {
-    const page = await env.STORAGE.list({ prefix, cursor, limit: 500 });
-    const keys: string[] = page.objects.map((o: { key: string }) => o.key);
+    const page = await bucket.list({ prefix, cursor, limit: 500 });
+    const keys = page.objects.map((o) => o.key);
     if (keys.length > 0) {
-      await env.STORAGE.delete(keys);
+      await bucket.delete(keys);
       deleted += keys.length;
     }
     cursor = page.truncated ? page.cursor : undefined;

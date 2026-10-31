@@ -50,6 +50,13 @@
       "when": 1793413929821,
       "tag": "0006_unique_emails",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793423579669,
+      "tag": "0007_drop_google_auth_tables",
+      "breakpoints": true
     }
   ]
 }
