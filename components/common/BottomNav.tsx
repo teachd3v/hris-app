@@ -45,7 +45,7 @@ export default function BottomNav({ items }: { items: MenuItem[] }) {
                 {cutiItem.icon}
               </span>
             </div>
-            <span className={`text-[10px] font-black tracking-wide transition-colors duration-300 ${isActive(cutiItem.href) ? 'text-[var(--red)]' : 'text-gray-400 group-hover:text-gray-600'}`}>
+            <span className={`text-[10px] font-black tracking-wide transition-colors duration-300 ${isActive(cutiItem.href) ? 'text-[var(--red)]' : 'text-[#15141A]'}`}>
               {cutiItem.label}
             </span>
           </Link>
@@ -64,14 +64,14 @@ export default function BottomNav({ items }: { items: MenuItem[] }) {
           {/* RIGHT: Profil */}
           <Link
             href={profileItem.href}
-            className={`flex flex-col items-center gap-0.5 transition-all duration-300 w-14 ${
-              isActive(profileItem.href) ? "text-[var(--red)] font-black" : "text-[var(--ink-4)]"
+            className={`flex flex-col items-center gap-0.5 transition-all duration-300 w-16 ${
+              isActive(profileItem.href) ? "text-[var(--red)] font-black" : "text-[#15141A]"
             }`}
           >
             <div className={`text-2xl ${isActive(profileItem.href) ? "scale-110 drop-shadow-sm" : ""}`}>
               {profileItem.icon}
             </div>
-            <span className="text-[10px] font-bold tracking-wide">{profileItem.label}</span>
+            <span className="text-[10px] font-bold tracking-wide whitespace-nowrap">{profileItem.label}</span>
           </Link>
 
         </div>
