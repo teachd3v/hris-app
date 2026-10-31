@@ -36,6 +36,20 @@
       "when": 1793270282717,
       "tag": "0004_leave_quotas",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793413929082,
+      "tag": "0005_attendance_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793413929821,
+      "tag": "0006_unique_emails",
+      "breakpoints": true
     }
   ]
 }

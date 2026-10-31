@@ -13,10 +13,7 @@ const APPS = [
   { icon: "⚙️", label: "Settings", desc: "Pengaturan", href: "/employee/coming-soon?feature=settings", color: "bg-gray-50 text-gray-600", isComingSoon: true },
 ];
 
-import { getDistanceFromLatLonInKm } from "@/lib/geo";
-
-const OFFICE_LAT = -6.4733643;
-const OFFICE_LNG = 106.7274949;
+import { getDistanceFromLatLonInKm, OFFICE_LAT, OFFICE_LNG } from "@/lib/geo";
 
 export default function GridDashboardClient({
   userName,

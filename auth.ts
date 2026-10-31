@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { sql, eq, or } from "drizzle-orm";
 import { getDb } from "./lib/db";
 import { employees, employee_credentials } from "./lib/db/schema";
+import { isAdminEmployee } from "./lib/admins";
 import { verifyPassword, MAX_FAILED_ATTEMPTS, LOCK_MINUTES } from "./lib/password";
 
 export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
@@ -78,6 +79,7 @@ export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
       session.user.email = emp.email ?? emp.institutional_email ?? session.user.email;
       (session as any).employee = emp;
       (session.user as any).role = emp.role;
+      (session.user as any).isAdmin = isAdminEmployee(emp, session.user.email);
       return session;
     },
   },

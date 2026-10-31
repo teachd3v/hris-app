@@ -1,6 +1,5 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { auth } from "@/auth";
-import { ADMIN_EMAILS } from "@/lib/auth-guard";
 
 // Prefix bucket yang boleh disajikan. Format key: <prefix>/<employeeId>/<file>
 const ALLOWED_PREFIXES = new Set(["avatars", "documents", "attendances", "leave_attachments"]);
@@ -21,7 +20,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pat
   const [prefix, ownerId] = segments;
   if (!ALLOWED_PREFIXES.has(prefix)) return new Response("Not found", { status: 404 });
 
-  const isAdmin = me.role === "Admin" || ADMIN_EMAILS.includes(session.user.email);
+  const isAdmin = Boolean((session.user as any).isAdmin);
   if (!SHARED_PREFIXES.has(prefix) && !isAdmin && ownerId !== me.id) {
     return new Response("Forbidden", { status: 403 });
   }

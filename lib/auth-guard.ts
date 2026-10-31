@@ -3,15 +3,9 @@ import { auth } from '@/auth'
 import { getDb } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { isAdminEmployee } from '@/lib/admins'
 
-export const ADMIN_EMAILS = [
-  'teachgen2025@gmail.com',
-  'teach.d3v@gmail.com',
-  'hudagraph@gmail.com',
-  'n.widodo@dompetdhuafa.org',
-  'zulfa.nur@dompetdhuafa.org',
-  'haryo@dompetdhuafa.org',
-]
+export { ADMIN_EMAILS } from '@/lib/admins'
 
 /** approval_status kosong = akun lama, dianggap sudah disetujui. */
 export function approvalOf(emp: { approval_status: string | null }) {
@@ -69,9 +63,7 @@ export async function getAdminContext() {
   const [emp] = await db.select().from(schema.employees).where(eq(schema.employees.id, employeeId)).limit(1)
   if (!emp) return null
 
-  const emails = [emp.email, emp.institutional_email, session.user.email].map((e) => (e || '').toLowerCase())
-  const isAdmin = emp.role === 'Admin' || ADMIN_EMAILS.some((a) => emails.includes(a.toLowerCase()))
-  return isAdmin ? { user: session.user, emp } : null
+  return isAdminEmployee(emp, session.user.email) ? { user: session.user, emp } : null
 }
 
 export async function requireAdmin() {

@@ -14,3 +14,8 @@ export function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: numb
 function deg2rad(deg: number) {
   return deg * (Math.PI / 180);
 }
+
+// Lokasi kantor & radius presensi (dipakai klien dan server)
+export const OFFICE_LAT = -6.4733643;
+export const OFFICE_LNG = 106.7274949;
+export const MAX_RADIUS_KM = 1.0;
