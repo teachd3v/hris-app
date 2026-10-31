@@ -1,5 +1,8 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { auth } from "@/auth";
+import { getDb } from "@/lib/db";
+import { employees } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 // Prefix bucket yang boleh disajikan. Format key: <prefix>/<employeeId>/<file>
 const ALLOWED_PREFIXES = new Set(["avatars", "documents", "attendances", "leave_attachments"]);
@@ -22,7 +25,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pat
 
   const isAdmin = Boolean((session.user as any).isAdmin);
   if (!SHARED_PREFIXES.has(prefix) && !isAdmin && ownerId !== me.id) {
-    return new Response("Forbidden", { status: 403 });
+    // Atasan langsung boleh membaca lampiran cuti bawahannya (untuk memutuskan persetujuan)
+    let allowed = false;
+    if (prefix === "leave_attachments") {
+      const [owner] = await getDb().select({ manager_id: employees.manager_id }).from(employees).where(eq(employees.id, ownerId)).limit(1);
+      allowed = owner?.manager_id === me.id;
+    }
+    if (!allowed) return new Response("Forbidden", { status: 403 });
   }
 
   const { env } = getCloudflareContext() as any;
