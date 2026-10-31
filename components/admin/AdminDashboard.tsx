@@ -11,11 +11,12 @@ import { updateEmployeeApprovalStatus, autoMatchManagers, type AutoMatchResult }
 
 interface AdminDashboardProps {
   employees: Employee[];
+  isSuperAdmin?: boolean;
 }
 
 type ApprovalTab = "Semua" | "Menunggu" | "Disetujui" | "Ditolak";
 
-export default function AdminDashboard({ employees: initialEmployees }: AdminDashboardProps) {
+export default function AdminDashboard({ employees: initialEmployees, isSuperAdmin = false }: AdminDashboardProps) {
   const [employees, setEmployees] = useState(initialEmployees);
   // Sinkronkan dengan data server setelah router.refresh() (tambah karyawan, cocokkan atasan, dst.)
   useEffect(() => { setEmployees(initialEmployees); }, [initialEmployees]);
@@ -98,7 +99,8 @@ export default function AdminDashboard({ employees: initialEmployees }: AdminDas
   const confirmApprove = () => {
     if (!modalEmp) return;
     startTransition(async () => {
-      await updateEmployeeApprovalStatus(modalEmp.id, 'Approved', selectedRole);
+      const res = await updateEmployeeApprovalStatus(modalEmp.id, 'Approved', selectedRole);
+      if (res?.error) { alert(res.error); return; }
       setEmployees(prev => prev.map(e => e.id === modalEmp.id ? { ...e, approval_status: 'Approved', role: selectedRole } as any : e));
       setModalEmp(null);
     });
@@ -106,14 +108,16 @@ export default function AdminDashboard({ employees: initialEmployees }: AdminDas
 
   const handleReject = (emp: any) => {
     startTransition(async () => {
-      await updateEmployeeApprovalStatus(emp.id, 'Rejected');
+      const res = await updateEmployeeApprovalStatus(emp.id, 'Rejected');
+      if (res?.error) { alert(res.error); return; }
       setEmployees(prev => prev.map(e => e.id === emp.id ? { ...e, approval_status: 'Rejected' } as any : e));
     });
   };
 
   const handleReset = (emp: any) => {
     startTransition(async () => {
-      await updateEmployeeApprovalStatus(emp.id, 'Pending');
+      const res = await updateEmployeeApprovalStatus(emp.id, 'Pending');
+      if (res?.error) { alert(res.error); return; }
       setEmployees(prev => prev.map(e => e.id === emp.id ? { ...e, approval_status: 'Pending' } as any : e));
     });
   };
@@ -407,7 +411,7 @@ export default function AdminDashboard({ employees: initialEmployees }: AdminDas
             </div>
 
             <div className="flex gap-3 mb-6">
-              {(['Karyawan', 'Admin'] as const).map(r => (
+              {((isSuperAdmin ? ['Karyawan', 'Admin'] : ['Karyawan']) as ('Karyawan' | 'Admin')[]).map(r => (
                 <button
                   key={r}
                   onClick={() => setSelectedRole(r)}

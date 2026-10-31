@@ -3,7 +3,7 @@ import { auth } from '@/auth'
 import { getDb } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
-import { isAdminEmployee } from '@/lib/admins'
+import { isAdminEmployee, isSuperAdminEmployee } from '@/lib/admins'
 
 export { ADMIN_EMAILS } from '@/lib/admins'
 
@@ -63,7 +63,8 @@ export async function getAdminContext() {
   const [emp] = await db.select().from(schema.employees).where(eq(schema.employees.id, employeeId)).limit(1)
   if (!emp) return null
 
-  return isAdminEmployee(emp, session.user.email) ? { user: session.user, emp } : null
+  if (!isAdminEmployee(emp, session.user.email)) return null
+  return { user: session.user, emp, isSuperAdmin: isSuperAdminEmployee(emp, session.user.email) }
 }
 
 export async function requireAdmin() {
@@ -72,10 +73,11 @@ export async function requireAdmin() {
     const session = await auth()
     redirect(session?.user?.id ? '/employee/dashboard' : '/')
   }
-  const { user, emp } = ctx
+  const { user, emp, isSuperAdmin } = ctx
 
   return {
     user,
+    isSuperAdmin,
     profile: { id: emp.id, role: emp.role, name: emp.name, photo_url: emp.photo_url, email: emp.email, approval_status: emp.approval_status },
   }
 }

@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/common/DashboardLayout";
 import Link from "next/link";
 import ManagerSelect from "@/components/admin/ManagerSelect";
 import { isTopLeader } from "@/lib/org";
+import { isAdminEmployee, isSuperAdminEmployee } from "@/lib/admins";
 import DeleteEmployeeButton from "@/components/admin/DeleteEmployeeButton";
 import ResetPasswordButton from "@/components/admin/ResetPasswordButton";
 import EmployeeProfileTabs from "@/components/admin/EmployeeProfileTabs";
@@ -18,7 +19,7 @@ import { ADMIN_MENU } from "@/lib/navigation";
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { user, profile: adminProfile } = await requireAdmin();
+  const { user, profile: adminProfile, isSuperAdmin } = await requireAdmin();
   const db = getDb();
 
   // Fetch ALL employee data from all tables
@@ -62,6 +63,10 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
 
   if (employeeRecords.length === 0) notFound();
   const employee = employeeRecords[0];
+
+  const targetIsSuperAdmin = isSuperAdminEmployee(employee);
+  // Akun admin hanya dikelola super admin; akun super admin tidak bisa diubah/dihapus siapa pun dari sini
+  const canManageAccount = !targetIsSuperAdmin && (isSuperAdmin || !isAdminEmployee(employee));
 
   const adminName = adminProfile?.name || user.email?.split('@')[0] || "Admin";
   const adminInitials = adminName.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
@@ -114,9 +119,17 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           <div className="flex flex-col gap-2 shrink-0 md:pt-2">
             <button className="btn btn-primary btn-sm">Validasi Data</button>
             <button className="btn btn-ghost btn-sm">Cetak Profil (PDF)</button>
-            <ResetPasswordButton employeeId={employee.id} employeeName={employee.name || employee.email || "karyawan"} />
-            {employee.id !== adminProfile?.id && (employee.email || employee.institutional_email) && (
-              <DeleteEmployeeButton employeeId={employee.id} employeeName={employee.name || "karyawan"} employeeEmail={(employee.email || employee.institutional_email)!} />
+            {canManageAccount ? (
+              <>
+                <ResetPasswordButton employeeId={employee.id} employeeName={employee.name || employee.email || "karyawan"} />
+                {employee.id !== adminProfile?.id && (employee.email || employee.institutional_email) && (
+                  <DeleteEmployeeButton employeeId={employee.id} employeeName={employee.name || "karyawan"} employeeEmail={(employee.email || employee.institutional_email)!} />
+                )}
+              </>
+            ) : (
+              <p className="text-[11px] font-medium text-ink-3 max-w-[180px]">
+                {targetIsSuperAdmin ? "Akun super admin tidak dapat diubah." : "Akun admin hanya dapat dikelola oleh super admin."}
+              </p>
             )}
           </div>
         </div>
