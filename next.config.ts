@@ -1,12 +1,4 @@
 import type { NextConfig } from "next";
-import withPWAInit from "@ducanh2912/next-pwa";
-
-const withPWA = withPWAInit({
-  dest: "public",
-  disable: process.env.NODE_ENV === "development",
-  register: true,
-  skipWaiting: true,
-} as any);
 
 // Security header untuk semua respons dinamis (di Cloudflare, vercel.json tidak berlaku)
 const securityHeaders = [
@@ -31,11 +23,6 @@ const nextConfig: any = {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
-      {
-        protocol: "https",
-        hostname: "*.supabase.co",
-        pathname: "/storage/v1/object/public/**",
-      },
     ],
   },
   experimental: {
@@ -46,6 +33,6 @@ const nextConfig: any = {
   },
 };
 
-export default withPWA(nextConfig);
+export default nextConfig;
 
 import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());

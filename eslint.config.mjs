@@ -28,7 +28,7 @@ const eslintConfig = defineConfig([
       // Indonesian text in JSX naturally contains quotes — off is pragmatic here.
       "react/no-unescaped-entities": "off",
 
-      // <img> is used intentionally for Supabase storage URLs in some components.
+      // <img> dipakai sengaja untuk foto dari /storage (R2) di beberapa komponen.
       "@next/next/no-img-element": "warn",
 
       // Hook exhaustive-deps warnings are tracked but non-blocking.

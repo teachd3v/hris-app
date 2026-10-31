@@ -5,28 +5,18 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev --webpack",
-    "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "check": "tsc --noEmit && eslint",
-    "db:start": "supabase start",
-    "db:stop": "supabase stop",
-    "db:reset": "supabase db reset",
-    "db:diff": "supabase db diff --linked",
-    "db:push": "supabase db push --linked",
-    "db:types": "supabase gen types typescript --linked --schema public > types/database.ts",
-    "db:types:local": "supabase gen types typescript --local --schema public > types/database.ts",
     "prepare": "husky",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
-    "@auth/drizzle-adapter": "^1.11.3",
-    "@ducanh2912/next-pwa": "^10.2.9",
     "@types/canvas-confetti": "^1.9.0",
-    "aws4fetch": "^1.0.20",
     "canvas-confetti": "^1.9.4",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.16.0",
@@ -40,7 +30,6 @@
   },
   "devDependencies": {
     "@opennextjs/cloudflare": "^1.20.2",
-    "@supabase/supabase-js": "^2.111.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
