@@ -43,14 +43,13 @@ export function parseIsoDate(s: string): Date | null {
   return isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s ? null : d;
 }
 
-/** Durasi dalam hari: izin jam-jaman = 1, melahirkan = hari kalender, selain itu hari kerja (Senin-Jumat). */
+/** Durasi dalam hari: izin jam-jaman = 1, selain itu hari kerja (Senin-Jumat; Sabtu & Minggu tidak dihitung). */
 export function calculateLeaveDuration(type: LeaveCategory, start: string, end: string): number {
   const s = parseIsoDate(start);
   const e = parseIsoDate(end);
   if (!s || !e || s > e) return 0;
 
   if (type === 'Izin Terlambat' || type === 'Izin Pulang Cepat') return 1;
-  if (type === 'Cuti Melahirkan') return Math.round((e.getTime() - s.getTime()) / 86_400_000) + 1;
 
   let days = 0;
   for (const d = new Date(s); d <= e; d.setUTCDate(d.getUTCDate() + 1)) {
