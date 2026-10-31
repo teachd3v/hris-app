@@ -32,7 +32,7 @@ import {
   cancelLeaveRequest, 
   type LeaveRequest
 } from './actions';
-import { LEAVE_TYPES, calculateLeaveDuration, type LeaveCategory } from '@/lib/leave';
+import { LEAVE_TYPES, calculateLeaveDuration, validateLeaveDates, type LeaveCategory } from '@/lib/leave';
 import ApprovalList from '@/components/cuti/ApprovalList';
 
 import { EMPLOYEE_MENU } from "@/lib/navigation";
@@ -113,8 +113,9 @@ export default function LeavePage() {
       return;
     }
 
-    if (durationDays <= 0) {
-      setFormError('Tanggal akhir harus setelah atau sama dengan tanggal mulai.');
+    const dateError = validateLeaveDates(selectedType, startDate, endDate);
+    if (dateError) {
+      setFormError(dateError);
       return;
     }
 
@@ -496,7 +497,10 @@ export default function LeavePage() {
                 <select
                   value={selectedType}
                   onChange={(e) => {
-                    setSelectedType(e.target.value as LeaveCategory);
+                    const next = e.target.value as LeaveCategory;
+                    setSelectedType(next);
+                    // Izin per jam hanya satu tanggal: tanggal selesai mengikuti tanggal mulai
+                    if (LEAVE_TYPES.find(t => t.key === next)?.timeBased) setEndDate(startDate);
                     setFormError('');
                   }}
                   className="w-full h-12 px-4 rounded-2xl bg-white border border-line-2 text-[13px] font-semibold text-ink focus:outline-none focus:border-ink transition-colors shadow-sm"
@@ -526,6 +530,7 @@ export default function LeavePage() {
                     value={startDate}
                     onChange={(e) => {
                       setStartDate(e.target.value);
+                      if (LEAVE_TYPES.find(t => t.key === selectedType)?.timeBased) setEndDate(e.target.value);
                       setFormError('');
                     }}
                     className="w-full h-12 px-4 rounded-2xl bg-white border border-line-2 text-[13px] font-semibold text-ink focus:outline-none focus:border-ink transition-colors shadow-sm"
@@ -537,11 +542,12 @@ export default function LeavePage() {
                     type="date"
                     required
                     value={endDate}
+                    disabled={Boolean(LEAVE_TYPES.find(t => t.key === selectedType)?.timeBased)}
                     onChange={(e) => {
                       setEndDate(e.target.value);
                       setFormError('');
                     }}
-                    className="w-full h-12 px-4 rounded-2xl bg-white border border-line-2 text-[13px] font-semibold text-ink focus:outline-none focus:border-ink transition-colors shadow-sm"
+                    className="w-full h-12 px-4 disabled:opacity-60 disabled:bg-gray-50 rounded-2xl bg-white border border-line-2 text-[13px] font-semibold text-ink focus:outline-none focus:border-ink transition-colors shadow-sm"
                   />
                 </div>
               </div>
