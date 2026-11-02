@@ -2,7 +2,8 @@
 
 import { useState, useEffect, ReactNode } from "react";
 import { getSession } from "next-auth/react";
-import { withSuperAdminMenu } from "@/lib/navigation";
+import { withSuperAdminMenu, withTeamMenu } from "@/lib/navigation";
+import { getHasTeam } from "@/app/employee/tim/actions";
 import Sidebar, { MenuItem } from "@/components/common/Sidebar";
 import Topbar from "@/components/common/Topbar";
 import BottomNav from "@/components/common/BottomNav";
@@ -43,7 +44,14 @@ export default function DashboardLayout({
     if (role !== "Admin") return;
     getSession().then((s) => setIsSuperAdmin(Boolean((s?.user as any)?.isSuperAdmin)));
   }, [role]);
-  const menuSections = isSuperAdmin ? withSuperAdminMenu(baseMenuSections) : baseMenuSections;
+  // Menu "Tim Saya" hanya untuk karyawan yang punya bawahan
+  const [hasTeam, setHasTeam] = useState(false);
+  useEffect(() => {
+    if (role !== "Karyawan") return;
+    getHasTeam().then(setHasTeam).catch(() => setHasTeam(false));
+  }, [role]);
+  let menuSections = isSuperAdmin ? withSuperAdminMenu(baseMenuSections) : baseMenuSections;
+  if (hasTeam) menuSections = withTeamMenu(menuSections);
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window !== "undefined") {

@@ -16,6 +16,7 @@ const APPS = [
 import { getDistanceFromLatLonInKm, OFFICE_LAT, OFFICE_LNG } from "@/lib/geo";
 
 export default function GridDashboardClient({
+  hasTeam = false,
   userName,
   userInitials,
   userPhoto,
@@ -26,6 +27,7 @@ export default function GridDashboardClient({
   userInitials: string;
   userPhoto?: string;
   userTitle: string;
+  hasTeam?: boolean;
   todayAttendance?: { 
     clockIn?: string; 
     clockOut?: string;
@@ -192,7 +194,7 @@ export default function GridDashboardClient({
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              {APPS.map((app, idx) => (
+              {(hasTeam ? [{ icon: "👥", label: "Tim Saya", desc: "Presensi & Cuti Tim", href: "/employee/tim", color: "bg-emerald-50 text-emerald-600" } as (typeof APPS)[number], ...APPS] : APPS).map((app, idx) => (
                 <Link
                   key={idx}
                   href={app.isComingSoon ? "#" : app.href}

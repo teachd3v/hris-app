@@ -3,6 +3,7 @@ import { getDb } from '@/lib/db'
 import { employees, attendances } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
 import GridDashboardClient from './GridDashboardClient'
+import { hasSubordinates } from '@/lib/org-tree'
 
 export default async function EmployeeDashboardPage() {
   const { user } = await requireApprovedUser()
@@ -47,6 +48,7 @@ export default async function EmployeeDashboardPage() {
 
   return (
     <GridDashboardClient 
+      hasTeam={employee ? await hasSubordinates(db, employee.id) : false}
       userName={name} 
       userInitials={initials}
       userPhoto={employee?.photo_url || undefined}
