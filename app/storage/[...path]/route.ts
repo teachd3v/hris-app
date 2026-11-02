@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { getDb } from "@/lib/db";
 import { employees } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { recordAudit } from "@/lib/audit";
 
 // Prefix bucket yang boleh disajikan. Format key: <prefix>/<employeeId>/<file>
 const ALLOWED_PREFIXES = new Set(["avatars", "documents", "attendances", "leave_attachments"]);
@@ -37,6 +38,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pat
   const { env } = getCloudflareContext() as any;
   const object = await env?.STORAGE?.get(segments.join("/"));
   if (!object) return new Response("Not found", { status: 404 });
+
+  // Dokumen pribadi / lampiran cuti dibuka oleh orang lain (admin atau atasan): catat di log audit.
+  // (Pemilik yang membuka berkas sendiri tidak dicatat.) Gagal mencatat = akses ditolak.
+  if ((prefix === "documents" || prefix === "leave_attachments") && ownerId !== me.id) {
+    const db = getDb();
+    const [owner] = await db.select({ name: employees.name }).from(employees).where(eq(employees.id, ownerId)).limit(1);
+    const emp = (session as any).employee as { id: string; name?: string | null; email?: string | null };
+    await recordAudit(db, { id: emp.id, name: emp.name, email: emp.email ?? session.user.email }, {
+      action: "document.access", targetType: "employee", targetId: ownerId, targetLabel: owner?.name ?? null,
+      details: { file: segments.slice(2).join("/"), area: prefix, as: isAdmin ? "admin" : "atasan" },
+    });
+  }
 
   const headers = new Headers();
   object.writeHttpMetadata(headers);

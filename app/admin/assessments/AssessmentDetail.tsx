@@ -1,6 +1,7 @@
 "use client";
 
 import { getAssessmentAnalysis } from "./actions";
+import { logExport } from "@/app/admin/audit/actions";
 import { useEffect, useState, use } from "react";
 import { notFound, useRouter } from "next/navigation";
 import { getSession } from "next-auth/react";
@@ -83,6 +84,9 @@ export default function AssessmentAnalysisPage({ params }: { params: Promise<{ i
 
   const handleExport = async () => {
     if (assessments.length === 0) return;
+    // Catat ekspor lebih dulu; bila gagal dicatat, ekspor dibatalkan
+    const logged = await logExport('assessment-recap-xlsx', { rows: assessments.length, label: `Rekap asesmen: ${template?.title ?? ''}` }).catch(() => ({ error: 'gagal' }));
+    if (logged.error) { alert('Ekspor dibatalkan: gagal mencatat ke log audit.'); return; }
     await loadScript("https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js");
     const XLSX = (window as any).XLSX;
 

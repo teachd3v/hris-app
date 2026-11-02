@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, numeric, primaryKey, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, numeric, primaryKey, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 
 export const achievements = sqliteTable("achievements", {
   id: text("id").primaryKey(),
@@ -244,6 +244,26 @@ export const employee_credentials = sqliteTable("employee_credentials", {
   failed_attempts: integer("failed_attempts").notNull().default(0),
   locked_until: text("locked_until"),
 });
+
+// Log audit: hanya ditambah (append-only; trigger SQL di migrasi 0010 menolak UPDATE/DELETE).
+// Nama/email pelaku dan target disimpan sebagai salinan karena akunnya bisa dihapus kemudian.
+export const audit_log = sqliteTable("audit_log", {
+  id: text("id").primaryKey(),
+  at: text("at").notNull(), // ISO UTC
+  actor_id: text("actor_id"), // null = sistem / belum login
+  actor_name: text("actor_name"),
+  actor_email: text("actor_email"),
+  action: text("action").notNull(), // lihat lib/audit.ts
+  target_type: text("target_type"),
+  target_id: text("target_id"),
+  target_label: text("target_label"),
+  details: text("details"), // JSON
+  ip: text("ip"),
+}, (t) => ({
+  atIdx: index("audit_log_at_idx").on(t.at),
+  actionIdx: index("audit_log_action_idx").on(t.action, t.at),
+  actorIdx: index("audit_log_actor_idx").on(t.actor_id, t.at),
+}));
 
 // Hari libur: tidak dihitung sebagai hari kerja pada pengajuan cuti. Satu baris per tanggal.
 export const holidays = sqliteTable("holidays", {

@@ -8,6 +8,7 @@ import { verifyPassword } from '@/lib/password'
 import { isTopLeader, normalizeName } from '@/lib/org'
 import { isAdminEmployee, isSuperAdminEmployee } from '@/lib/admins'
 import { deleteStoragePrefix } from '@/lib/storage'
+import { auditStmt } from '@/lib/audit'
 import { revalidatePath } from 'next/cache'
 
 export async function updateEmployeeApprovalStatus(
@@ -15,7 +16,7 @@ export async function updateEmployeeApprovalStatus(
   approvalStatus: 'Approved' | 'Rejected' | 'Pending',
   role?: 'Karyawan' | 'Admin'
 ): Promise<{ error?: string }> {
-  const { isSuperAdmin } = await requireAdmin()
+  const { isSuperAdmin, profile: admin } = await requireAdmin()
   const db = getDb()
 
   const [target] = await db.select().from(schema.employees).where(eq(schema.employees.id, employeeId)).limit(1)
@@ -36,10 +37,22 @@ export async function updateEmployeeApprovalStatus(
   }
   if (role) updates.role = role
 
-  await db
-    .update(schema.employees)
-    .set(updates)
-    .where(eq(schema.employees.id, employeeId))
+  const actor = { id: admin.id, name: admin.name, email: admin.email }
+  const label = target.name || target.email
+  const prevStatus = target.approval_status || 'Approved'
+  const prevRole = target.role || 'Karyawan'
+  const audits = []
+  if (role && role !== prevRole) {
+    audits.push(...(await auditStmt(db, actor, { action: 'role.change', targetType: 'employee', targetId: employeeId, targetLabel: label, details: { from: prevRole, to: role } })))
+  }
+  if (approvalStatus !== prevStatus) {
+    audits.push(...(await auditStmt(db, actor, { action: 'account.approval', targetType: 'employee', targetId: employeeId, targetLabel: label, details: { from: prevStatus, to: approvalStatus } })))
+  }
+
+  await db.batch([
+    db.update(schema.employees).set(updates).where(eq(schema.employees.id, employeeId)),
+    ...audits,
+  ] as any)
 
   revalidatePath('/admin/employees')
   return {}
@@ -51,7 +64,7 @@ export async function createEmployee(input: {
   email: string
   role: 'Karyawan' | 'Admin'
 }): Promise<{ error?: string; id?: string }> {
-  await requireAdmin()
+  const { profile: admin } = await requireAdmin()
 
   const name = input.name.trim()
   const email = input.email.trim().toLowerCase()
@@ -69,16 +82,19 @@ export async function createEmployee(input: {
 
   const now = new Date().toISOString()
   const id = crypto.randomUUID()
-  await db.insert(schema.employees).values({
-    id,
-    name,
-    email,
-    role: input.role,
-    approval_status: 'Approved',
-    profile_completed: 0,
-    created_at: now,
-    updated_at: now,
-  })
+  await db.batch([
+    db.insert(schema.employees).values({
+      id,
+      name,
+      email,
+      role: input.role,
+      approval_status: 'Approved',
+      profile_completed: 0,
+      created_at: now,
+      updated_at: now,
+    }),
+    ...(await auditStmt(db, { id: admin.id, name: admin.name, email: admin.email }, { action: 'employee.create', targetType: 'employee', targetId: id, targetLabel: name, details: { email, role: input.role } })),
+  ] as any)
 
   revalidatePath('/admin/employees')
   return { id }
@@ -86,7 +102,7 @@ export async function createEmployee(input: {
 
 /** Kembalikan password karyawan ke password default dan buka kunci akun. Sesi aktifnya ikut dicabut. */
 export async function resetEmployeePassword(employeeId: string): Promise<{ error?: string }> {
-  const { isSuperAdmin } = await requireAdmin()
+  const { isSuperAdmin, profile: admin } = await requireAdmin()
   const db = getDb()
 
   const [emp] = await db.select().from(schema.employees).where(eq(schema.employees.id, employeeId)).limit(1)
@@ -101,8 +117,13 @@ export async function resetEmployeePassword(employeeId: string): Promise<{ error
     locked_until: null,
   }
   const [cred] = await db.select({ id: schema.employee_credentials.employee_id }).from(schema.employee_credentials).where(eq(schema.employee_credentials.employee_id, employeeId)).limit(1)
-  if (cred) await db.update(schema.employee_credentials).set(patch).where(eq(schema.employee_credentials.employee_id, employeeId))
-  else await db.insert(schema.employee_credentials).values({ employee_id: employeeId, ...patch })
+  const audit = (await auditStmt(db, { id: admin.id, name: admin.name, email: admin.email }, { action: 'password.reset', targetType: 'employee', targetId: employeeId, targetLabel: emp.name || emp.email, details: { target_is_admin: isAdminEmployee(emp) } }))
+  await db.batch([
+    cred
+      ? db.update(schema.employee_credentials).set(patch).where(eq(schema.employee_credentials.employee_id, employeeId))
+      : db.insert(schema.employee_credentials).values({ employee_id: employeeId, ...patch }),
+    ...audit,
+  ] as any)
 
   return {}
 }
@@ -158,6 +179,10 @@ export async function deleteEmployee(
       // Bawahan yang atasannya dihapus tidak lagi punya atasan
       db.update(schema.employees).set({ manager_id: null }).where(eq(schema.employees.manager_id, employeeId)),
       db.delete(schema.employees).where(eq(schema.employees.id, employeeId)),
+      ...(await auditStmt(db, { id: admin.id, name: admin.name, email: admin.email }, {
+        action: 'employee.delete', targetType: 'employee', targetId: employeeId, targetLabel: target.name || target.email,
+        details: { email: target.email, role: target.role, dept: target.dept },
+      })),
     ] as any)
 
     // Bersihkan file R2 (best effort: data DB sudah terhapus)
@@ -192,8 +217,9 @@ function createsCycle(nodes: Map<string, OrgNode>, employeeId: string, managerId
 
 /** Tetapkan atasan langsung. Semua karyawan wajib punya atasan kecuali pucuk pimpinan. */
 export async function setEmployeeManager(employeeId: string, managerId: string | null): Promise<{ error?: string }> {
-  await requireAdmin()
+  const { profile: admin } = await requireAdmin()
   const db = getDb()
+  const actor = { id: admin.id, name: admin.name, email: admin.email }
 
   const all = await db
     .select({ id: schema.employees.id, name: schema.employees.name, email: schema.employees.email, institutional_email: schema.employees.institutional_email, manager_id: schema.employees.manager_id })
@@ -203,7 +229,10 @@ export async function setEmployeeManager(employeeId: string, managerId: string |
 
   if (isTopLeader(target)) {
     if (managerId) return { error: 'Pucuk pimpinan tidak memiliki atasan' }
-    await db.update(schema.employees).set({ manager_id: null, manager: null, updated_at: new Date().toISOString() }).where(eq(schema.employees.id, employeeId))
+    await db.batch([
+      db.update(schema.employees).set({ manager_id: null, manager: null, updated_at: new Date().toISOString() }).where(eq(schema.employees.id, employeeId)),
+      ...(await auditStmt(db, actor, { action: 'manager.set', targetType: 'employee', targetId: employeeId, targetLabel: target.name, details: { from: all.find((e) => e.id === target.manager_id)?.name ?? null, to: null } })),
+    ] as any)
     revalidatePath('/admin/employees')
     return {}
   }
@@ -216,7 +245,10 @@ export async function setEmployeeManager(employeeId: string, managerId: string |
     return { error: `${manager.name} sudah berada di bawah ${target.name}; atasan tidak boleh melingkar` }
   }
 
-  await db.update(schema.employees).set({ manager_id: managerId, manager: manager.name, updated_at: new Date().toISOString() }).where(eq(schema.employees.id, employeeId))
+  await db.batch([
+    db.update(schema.employees).set({ manager_id: managerId, manager: manager.name, updated_at: new Date().toISOString() }).where(eq(schema.employees.id, employeeId)),
+    ...(await auditStmt(db, actor, { action: 'manager.set', targetType: 'employee', targetId: employeeId, targetLabel: target.name, details: { from: all.find((e) => e.id === target.manager_id)?.name ?? null, to: manager.name } })),
+  ] as any)
   revalidatePath('/admin/employees')
   return {}
 }
@@ -228,8 +260,9 @@ export interface AutoMatchResult {
 
 /** Isi manager_id dari nama atasan di kolom teks lama bila cocok persis dengan satu karyawan. */
 export async function autoMatchManagers(): Promise<AutoMatchResult & { error?: string }> {
-  await requireAdmin()
+  const { profile: admin } = await requireAdmin()
   const db = getDb()
+  const actor = { id: admin.id, name: admin.name, email: admin.email }
 
   const all = await db
     .select({ id: schema.employees.id, name: schema.employees.name, email: schema.employees.email, institutional_email: schema.employees.institutional_email, manager: schema.employees.manager, manager_id: schema.employees.manager_id })
@@ -267,9 +300,13 @@ export async function autoMatchManagers(): Promise<AutoMatchResult & { error?: s
 
   if (updates.length > 0) {
     const now = new Date().toISOString()
-    await db.batch(updates.map((u) =>
-      db.update(schema.employees).set({ manager_id: u.managerId, manager: u.managerName, updated_at: now }).where(eq(schema.employees.id, u.id)),
-    ) as any)
+    const nameOf = new Map(all.map((e) => [e.id, e.name]))
+    const stmts = []
+    for (const u of updates) {
+      stmts.push(db.update(schema.employees).set({ manager_id: u.managerId, manager: u.managerName, updated_at: now }).where(eq(schema.employees.id, u.id)))
+      stmts.push(...(await auditStmt(db, actor, { action: 'manager.set', targetType: 'employee', targetId: u.id, targetLabel: nameOf.get(u.id), details: { from: null, to: u.managerName, via: 'cocokkan-otomatis' } })))
+    }
+    await db.batch(stmts as any)
     revalidatePath('/admin/employees')
   }
   return { matched: updates.length, unmatched }

@@ -64,6 +64,20 @@
       "when": 1793483277906,
       "tag": "0008_holidays",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793589879621,
+      "tag": "0009_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793589880647,
+      "tag": "0010_audit_log_immutable",
+      "breakpoints": true
     }
   ]
 }

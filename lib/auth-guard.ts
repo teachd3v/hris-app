@@ -81,3 +81,10 @@ export async function requireAdmin() {
     profile: { id: emp.id, role: emp.role, name: emp.name, photo_url: emp.photo_url, email: emp.email, approval_status: emp.approval_status },
   }
 }
+
+/** Halaman khusus super admin; admin biasa dialihkan ke daftar karyawan. */
+export async function requireSuperAdmin() {
+  const ctx = await requireAdmin()
+  if (!ctx.isSuperAdmin) redirect('/admin/employees')
+  return ctx
+}

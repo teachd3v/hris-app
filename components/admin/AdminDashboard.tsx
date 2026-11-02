@@ -8,6 +8,7 @@ import AddEmployeeModal from "./AddEmployeeModal";
 import Link from "next/link";
 import { isTopLeader } from "@/lib/org";
 import { updateEmployeeApprovalStatus, autoMatchManagers, type AutoMatchResult } from "@/app/admin/employees/actions";
+import { logExport } from "@/app/admin/audit/actions";
 
 interface AdminDashboardProps {
   employees: Employee[];
@@ -70,6 +71,9 @@ export default function AdminDashboard({ employees: initialEmployees, isSuperAdm
 
   const handleExportCSV = async () => {
     if (filtered.length === 0) return;
+    // Catat ekspor lebih dulu; bila gagal dicatat, ekspor dibatalkan
+    const logged = await logExport('employees-xlsx', { rows: filtered.length, label: 'Daftar karyawan' }).catch(() => ({ error: 'gagal' }));
+    if (logged.error) { alert('Ekspor dibatalkan: gagal mencatat ke log audit.'); return; }
     await loadScript("https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js");
     const XLSX = (window as any).XLSX;
     const exportData = filtered.map(emp => ({

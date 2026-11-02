@@ -23,6 +23,10 @@ Berjalan penuh di ekosistem **Cloudflare** — produksi: <https://hrteach.site>.
 - **Admin / HC** — setiap admin adalah HC: persetujuan akhir cuti, jatah cuti, atasan, tambah/reset/hapus karyawan. Admin = `employees.role = 'Admin'` **atau** email ada di `lib/admins.ts`.
 - **Super admin** — `hudagraph@gmail.com` (lihat `lib/admins.ts`). Satu-satunya yang boleh memberi/mencabut peran admin serta mengubah, mereset, dan menghapus akun admin lain. Akun super admin tidak dapat diubah siapa pun dari panel.
 
+## Log audit
+
+Tindakan sensitif dicatat di tabel `audit_log` (siapa, apa, target, detail, IP, waktu): tambah/hapus akun, reset password, ubah peran/status akun, ubah atasan, keputusan cuti (atasan & HC), ubah kuota, hari libur, akun terkunci karena salah password, pembukaan dokumen pribadi/lampiran cuti oleh selain pemiliknya, dan ekspor data. Pencatatan berada dalam transaksi yang sama dengan aksinya. Tabel **append-only** (trigger SQL menolak UPDATE/DELETE) dan **hanya super admin** yang dapat membacanya di menu *Log Audit*.
+
 Aturan admin/super admin hanya didefinisikan di `lib/admins.ts` dan dihitung di server (`session.user.isAdmin`, `isSuperAdmin`).
 
 ## Login
@@ -46,7 +50,8 @@ Siapkan D1 lokal (berkas migrasi berurutan, lihat bagian Migrasi) lalu isi satu 
 ```bash
 for f in 0000_strong_the_leader 0001_acoustic_silver_fox 0002_strange_scrambler \
          0003_employee_credentials 0004_leave_quotas 0005_attendance_unique \
-         0006_unique_emails 0007_drop_google_auth_tables 0008_holidays; do
+         0006_unique_emails 0007_drop_google_auth_tables 0008_holidays \
+         0009_audit_log 0010_audit_log_immutable; do
   npx wrangler d1 execute hris-teachapp-db --local --file=drizzle/$f.sql
 done
 
@@ -75,7 +80,7 @@ Migrasi ada di `drizzle/` dan dijalankan **manual** dengan `wrangler d1 execute 
 npx wrangler d1 execute hris-teachapp-db --remote --file=drizzle/<berkas>.sql
 ```
 
-Urutan untuk database baru: `0000` → `0008`. Berkas `custom_migration_institutional_email.sql` adalah sisa lama (sudah tercakup `0002`), **jangan** dijalankan di database baru. `drizzle/manual/` berisi SQL pendukung:
+Urutan untuk database baru: `0000` → `0010`. Berkas `custom_migration_institutional_email.sql` adalah sisa lama (sudah tercakup `0002`), **jangan** dijalankan di database baru. `drizzle/manual/` berisi SQL pendukung:
 
 - `check_duplicates.sql` — jalankan sebelum menambah indeks unik (`0005`, `0006`).
 - `create_leave_requests.sql` — membuat `leave_requests` bila belum ada (database lama).
@@ -95,13 +100,14 @@ Setelah deploy: pastikan akses publik (`r2.dev`) bucket `hris-teachapp-storage` 
 ## Struktur
 
 ```
-app/admin/*          halaman admin (karyawan, asesmen, pengajuan cuti, kuota cuti, hari libur)
+app/admin/*          halaman admin (karyawan, asesmen, pengajuan cuti, kuota cuti, hari libur, log audit)
 app/employee/*       halaman karyawan (dashboard, profil, presensi, cuti, dokumen, asesmen)
 app/storage/*        route file R2 (wajib login, cek kepemilikan)
 auth.ts              NextAuth (Credentials + JWT)
 lib/admins.ts        definisi admin & super admin
 lib/auth-guard.ts    penjaga halaman/aksi server
 lib/leave*.ts        aturan cuti & perhitungan jatah
+lib/audit.ts         pencatatan log audit (atomik dengan aksinya)
 lib/upload.ts        validasi unggahan (ukuran, magic bytes)
 lib/db/schema.ts     skema Drizzle (sumber migrasi)
 drizzle/             migrasi SQL

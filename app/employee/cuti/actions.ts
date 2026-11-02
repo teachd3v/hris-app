@@ -9,6 +9,7 @@ import { validateUpload, DOCUMENT_KINDS, MB } from '@/lib/upload'
 import { getLeaveBalances, type LeaveBalance } from '@/lib/leave-balance'
 import { isTopLeader } from '@/lib/org'
 import { loadHolidayDates } from '@/lib/holidays'
+import { auditStmt } from '@/lib/audit'
 import { LEAVE_TYPES, LEAVE_TYPE_KEYS, calculateLeaveDuration, validateLeaveDates, parseIsoDate, type LeaveCategory } from '@/lib/leave'
 import { eq, and, desc, asc, inArray, or, lte, gte } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
@@ -276,13 +277,20 @@ export async function approveByManager(id: string, isApproved: boolean, notes: s
   const [sub] = await db.select({ manager_id: schema.employees.manager_id }).from(schema.employees).where(eq(schema.employees.id, request.employee_id ?? '')).limit(1)
   if (!sub || sub.manager_id !== manager.id) return { error: 'Anda tidak memiliki wewenang untuk menyetujui pengajuan ini' }
 
-  await db.update(schema.leave_requests).set({
-    status: isApproved ? 'PENDING_HC_ADMIN' : 'REJECTED',
-    manager_approved_by: manager.id,
-    manager_approved_at: new Date().toISOString(),
-    manager_notes: cleanNotes,
-    updated_at: new Date().toISOString(),
-  }).where(and(eq(schema.leave_requests.id, id), eq(schema.leave_requests.status, 'PENDING_DIRECT_MANAGER')))
+  const [requester] = await db.select({ name: schema.employees.name }).from(schema.employees).where(eq(schema.employees.id, request.employee_id ?? '')).limit(1)
+  await db.batch([
+    db.update(schema.leave_requests).set({
+      status: isApproved ? 'PENDING_HC_ADMIN' : 'REJECTED',
+      manager_approved_by: manager.id,
+      manager_approved_at: new Date().toISOString(),
+      manager_notes: cleanNotes,
+      updated_at: new Date().toISOString(),
+    }).where(and(eq(schema.leave_requests.id, id), eq(schema.leave_requests.status, 'PENDING_DIRECT_MANAGER'))),
+    ...(await auditStmt(db, { id: manager.id, name: manager.name, email: manager.email }, {
+      action: 'leave.manager_decision', targetType: 'leave_request', targetId: id, targetLabel: requester?.name ?? null,
+      details: { decision: isApproved ? 'setuju' : 'tolak', leave_type: request.leave_type, start: request.start_date, end: request.end_date, days: request.total_days, notes: cleanNotes || undefined },
+    })),
+  ] as any)
 
   revalidatePath('/employee/cuti')
   return {}
@@ -336,13 +344,20 @@ export async function approveByHC(id: string, isApproved: boolean, notes: string
     }
   }
 
-  await db.update(schema.leave_requests).set({
-    status: isApproved ? 'APPROVED' : 'REJECTED',
-    hc_approved_by: admin.emp.id,
-    hc_approved_at: new Date().toISOString(),
-    hc_notes: cleanNotes,
-    updated_at: new Date().toISOString(),
-  }).where(and(eq(schema.leave_requests.id, id), eq(schema.leave_requests.status, 'PENDING_HC_ADMIN')))
+  const [requesterHc] = await db.select({ name: schema.employees.name }).from(schema.employees).where(eq(schema.employees.id, request.employee_id ?? '')).limit(1)
+  await db.batch([
+    db.update(schema.leave_requests).set({
+      status: isApproved ? 'APPROVED' : 'REJECTED',
+      hc_approved_by: admin.emp.id,
+      hc_approved_at: new Date().toISOString(),
+      hc_notes: cleanNotes,
+      updated_at: new Date().toISOString(),
+    }).where(and(eq(schema.leave_requests.id, id), eq(schema.leave_requests.status, 'PENDING_HC_ADMIN'))),
+    ...(await auditStmt(db, { id: admin.emp.id, name: admin.emp.name, email: admin.emp.email }, {
+      action: 'leave.hc_decision', targetType: 'leave_request', targetId: id, targetLabel: requesterHc?.name ?? null,
+      details: { decision: isApproved ? 'setuju' : 'tolak', leave_type: request.leave_type, start: request.start_date, end: request.end_date, days: request.total_days, notes: cleanNotes || undefined },
+    })),
+  ] as any)
 
   revalidatePath('/employee/cuti')
   revalidatePath('/admin/leave-requests')

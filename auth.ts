@@ -4,13 +4,14 @@ import { sql, eq, or } from "drizzle-orm";
 import { getDb } from "./lib/db";
 import { employees, employee_credentials } from "./lib/db/schema";
 import { isAdminEmployee, isSuperAdminEmployee } from "./lib/admins";
+import { auditStmt } from "./lib/audit";
 import { verifyPassword, MAX_FAILED_ATTEMPTS, LOCK_MINUTES } from "./lib/password";
 
 export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       credentials: { email: {}, password: {} },
-      async authorize(raw) {
+      async authorize(raw, request) {
         const email = String(raw?.email ?? "").trim().toLowerCase();
         const password = String(raw?.password ?? "");
         if (!email || !password) return null;
@@ -36,8 +37,22 @@ export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
             failed_attempts: locked ? 0 : attempts,
             locked_until: locked ? new Date(now + LOCK_MINUTES * 60_000).toISOString() : null,
           };
-          if (cred) await db.update(employee_credentials).set(patch).where(eq(employee_credentials.employee_id, emp.id));
-          else await db.insert(employee_credentials).values({ employee_id: emp.id, ...patch });
+          const save = cred
+            ? db.update(employee_credentials).set(patch).where(eq(employee_credentials.employee_id, emp.id))
+            : db.insert(employee_credentials).values({ employee_id: emp.id, ...patch });
+          if (locked) {
+            // Catat penguncian akun (percobaan salah beruntun) bersama pembaruan kredensial
+            await db.batch([
+              save,
+              ...(await auditStmt(db, { email }, {
+                action: "auth.lockout", targetType: "employee", targetId: emp.id, targetLabel: emp.name,
+                details: { attempts: MAX_FAILED_ATTEMPTS, locked_minutes: LOCK_MINUTES },
+                ip: request?.headers?.get("cf-connecting-ip") ?? null,
+              })),
+            ] as any);
+          } else {
+            await save;
+          }
           return null;
         }
 

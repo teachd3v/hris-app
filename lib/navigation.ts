@@ -43,3 +43,12 @@ export const ADMIN_MENU: { label: string; items: MenuItem[] }[] = [
     ],
   },
 ];
+
+/** Tambahkan menu khusus super admin ("Log Audit") ke menu admin. */
+export function withSuperAdminMenu(menu: { label: string; items: MenuItem[] }[]) {
+  return menu.map((section) =>
+    section.label === "Lainnya" && !section.items.some((i) => i.href === "/admin/audit")
+      ? { ...section, items: [{ icon: "🧾", label: "Log Audit", href: "/admin/audit" }, ...section.items] }
+      : section,
+  );
+}

@@ -7,11 +7,15 @@ import { getLeaveBalances, type LeaveBalance } from '@/lib/leave-balance'
 import { LEAVE_TYPE_KEYS } from '@/lib/leave'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { auditStmt } from '@/lib/audit'
 
-async function requireAdminAction() {
+async function requireAdminActionCtx() {
   const admin = await getAdminContext()
   if (!admin) throw new Error('Unauthorized')
-  return getDb()
+  return { db: getDb(), actor: { id: admin.emp.id, name: admin.emp.name, email: admin.emp.email } }
+}
+async function requireAdminAction() {
+  return (await requireAdminActionCtx()).db
 }
 
 const validYear = (y: number) => Number.isInteger(y) && y >= 2020 && y <= 2100
@@ -56,10 +60,10 @@ export async function saveEmployeeQuotas(
   year: number,
   quotas: Record<string, number | null>,
 ): Promise<{ error?: string }> {
-  const db = await requireAdminAction()
+  const { db, actor } = await requireAdminActionCtx()
   if (!validYear(year)) return { error: 'Tahun tidak valid' }
 
-  const [emp] = await db.select({ id: schema.employees.id }).from(schema.employees).where(eq(schema.employees.id, employeeId)).limit(1)
+  const [emp] = await db.select({ id: schema.employees.id, name: schema.employees.name }).from(schema.employees).where(eq(schema.employees.id, employeeId)).limit(1)
   if (!emp) return { error: 'Karyawan tidak ditemukan' }
 
   const upserts: { type: string; quota: number }[] = []
@@ -93,7 +97,21 @@ export async function saveEmployeeQuotas(
         set: { quota: String(u.quota), updated_at: now },
       }))
   }
-  if (statements.length > 0) await db.batch(statements as any)
+  if (statements.length > 0) {
+    // Catat nilai lama -> baru untuk setiap jenis yang berubah
+    const touched = [...clears, ...upserts.map((u) => u.type)]
+    const before = await db.select().from(schema.leave_quotas).where(and(
+      eq(schema.leave_quotas.employee_id, employeeId),
+      eq(schema.leave_quotas.year, year),
+      inArray(schema.leave_quotas.leave_type, touched),
+    ))
+    const prev = new Map(before.map((r) => [r.leave_type, Number(r.quota)]))
+    const changes: Record<string, { from: number | null; to: number | null }> = {}
+    for (const t of clears) changes[t] = { from: prev.get(t) ?? null, to: null }
+    for (const u of upserts) changes[u.type] = { from: prev.get(u.type) ?? null, to: u.quota }
+    statements.push(...(await auditStmt(db, actor, { action: 'quota.update', targetType: 'employee', targetId: employeeId, targetLabel: emp.name, details: { year, changes } })))
+    await db.batch(statements as any)
+  }
 
   revalidatePath('/employee/cuti')
   return {}

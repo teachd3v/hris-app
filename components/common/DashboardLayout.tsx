@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, ReactNode } from "react";
+import { useState, useEffect, ReactNode } from "react";
+import { getSession } from "next-auth/react";
+import { withSuperAdminMenu } from "@/lib/navigation";
 import Sidebar, { MenuItem } from "@/components/common/Sidebar";
 import Topbar from "@/components/common/Topbar";
 import BottomNav from "@/components/common/BottomNav";
@@ -33,8 +35,16 @@ export default function DashboardLayout({
   showMobileHome = false,
   noPadding = false,
   sidebarLocked = false,
-  menuSections
+  menuSections: baseMenuSections
 }: DashboardLayoutProps) {
+  // Menu khusus super admin (Log Audit): flag dihitung di server (session.user.isSuperAdmin)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  useEffect(() => {
+    if (role !== "Admin") return;
+    getSession().then((s) => setIsSuperAdmin(Boolean((s?.user as any)?.isSuperAdmin)));
+  }, [role]);
+  const menuSections = isSuperAdmin ? withSuperAdminMenu(baseMenuSections) : baseMenuSections;
+
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("sidebar_collapsed") === "true";

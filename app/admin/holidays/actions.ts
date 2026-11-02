@@ -6,11 +6,15 @@ import * as schema from '@/lib/db/schema'
 import { parseIsoDate, HOLIDAY_TYPES } from '@/lib/leave'
 import { and, asc, eq, gte, lte } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { auditStmt } from '@/lib/audit'
 
-async function requireAdminAction() {
+async function requireAdminActionCtx() {
   const admin = await getAdminContext()
   if (!admin) throw new Error('Unauthorized')
-  return getDb()
+  return { db: getDb(), actor: { id: admin.emp.id, name: admin.emp.name, email: admin.emp.email } }
+}
+async function requireAdminAction() {
+  return (await requireAdminActionCtx()).db
 }
 
 export interface HolidayRow {
@@ -31,7 +35,7 @@ export async function listHolidays(year: number): Promise<HolidayRow[]> {
 
 /** Tambah/ubah hari libur (satu baris per tanggal; tanggal yang sudah ada diperbarui). */
 export async function saveHolidays(entries: HolidayRow[]): Promise<{ error?: string; saved?: number }> {
-  const db = await requireAdminAction()
+  const { db, actor } = await requireAdminActionCtx()
 
   if (!Array.isArray(entries) || entries.length === 0) return { error: 'Tidak ada data untuk disimpan' }
   if (entries.length > 400) return { error: 'Maksimal 400 tanggal sekaligus' }
@@ -47,20 +51,32 @@ export async function saveHolidays(entries: HolidayRow[]): Promise<{ error?: str
   }
 
   const now = new Date().toISOString()
-  await db.batch([...byDate.values()].map((h) =>
-    db.insert(schema.holidays)
-      .values({ date: h.date, name: h.name, type: h.type, created_at: now })
-      .onConflictDoUpdate({ target: schema.holidays.date, set: { name: h.name, type: h.type } }),
-  ) as any)
+  const list = [...byDate.values()]
+  await db.batch([
+    ...list.map((h) =>
+      db.insert(schema.holidays)
+        .values({ date: h.date, name: h.name, type: h.type, created_at: now })
+        .onConflictDoUpdate({ target: schema.holidays.date, set: { name: h.name, type: h.type } }),
+    ),
+    ...(await auditStmt(db, actor, {
+      action: 'holiday.save', targetType: 'holiday', targetLabel: list.length === 1 ? `${list[0].date} ${list[0].name}` : `${list.length} tanggal`,
+      details: { count: list.length, items: list.slice(0, 20).map((h) => `${h.date} ${h.name} (${h.type})`) },
+    })),
+  ] as any)
 
   revalidatePath('/admin/holidays')
   return { saved: byDate.size }
 }
 
 export async function deleteHoliday(date: string): Promise<{ error?: string }> {
-  const db = await requireAdminAction()
+  const { db, actor } = await requireAdminActionCtx()
   if (!parseIsoDate(date)) return { error: 'Tanggal tidak valid' }
-  await db.delete(schema.holidays).where(eq(schema.holidays.date, date))
+  const [existing] = await db.select().from(schema.holidays).where(eq(schema.holidays.date, date)).limit(1)
+  if (!existing) return {}
+  await db.batch([
+    db.delete(schema.holidays).where(eq(schema.holidays.date, date)),
+    ...(await auditStmt(db, actor, { action: 'holiday.delete', targetType: 'holiday', targetId: date, targetLabel: `${date} ${existing.name}`, details: { name: existing.name, type: existing.type } })),
+  ] as any)
   revalidatePath('/admin/holidays')
   return {}
 }
