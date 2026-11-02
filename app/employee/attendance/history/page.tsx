@@ -78,7 +78,7 @@ export default function AttendanceHistoryPage() {
     >
       <div className="flex flex-col min-h-screen md:min-h-0 bg-[var(--bg)] md:bg-transparent pb-8">
         <div className="relative pt-5 pb-12 px-6 bg-[var(--red)] text-white rounded-b-[40px] md:hidden overflow-hidden shadow-md shrink-0">
-          <Link href="/employee/attendance" aria-label="Kembali ke presensi" className="absolute top-5 left-6 z-20 w-10 h-10 flex items-center justify-center bg-white/10 rounded-full"><Home size={18} strokeWidth={2.5} /></Link>
+          <Link href="/employee/dashboard" aria-label="Kembali ke beranda" className="absolute top-5 left-6 z-20 w-10 h-10 flex items-center justify-center bg-white/10 rounded-full"><Home size={18} strokeWidth={2.5} /></Link>
           <h1 className="relative z-10 text-center text-white/90 text-[14px] font-bold tracking-widest uppercase mt-2">Riwayat Presensi</h1>
         </div>
 
