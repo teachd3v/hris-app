@@ -2,11 +2,13 @@
 
 import { auth } from '@/auth';
 import { getDb } from '@/lib/db';
-import { employees, attendances } from '@/lib/db/schema';
-import { eq, and, isNull } from 'drizzle-orm';
+import { employees, attendances, leave_requests, holidays } from '@/lib/db/schema';
+import { eq, and, isNull, gte, lte } from 'drizzle-orm';
 import { uploadToStorage, deleteFromStorage } from '@/lib/storage';
 import { validateUpload, IMAGE_KINDS, MB } from '@/lib/upload';
 import { todayWIB } from '@/lib/time';
+import { dayStatus, type DayStatus } from '@/lib/attendance-status';
+import { parseIsoDate } from '@/lib/leave';
 import { getDistanceFromLatLonInKm, OFFICE_LAT, OFFICE_LNG, MAX_RADIUS_KM } from '@/lib/geo';
 
 // Pembatasan lokasi di server aktif jika ATTENDANCE_ENFORCE_GEOFENCE=true (default mati selama masa uji coba)
@@ -115,4 +117,88 @@ export async function submitAttendance(type: 'in' | 'out', formData: FormData) {
   }
 
   return { success: true };
+}
+
+export interface AttendanceHistoryDay {
+  date: string;
+  /** TIDAK_ADA = hari kerja tanpa catatan presensi (netral, bukan tuduhan tidak hadir) */
+  status: DayStatus | 'TIDAK_ADA';
+  detail: string | null;
+  clock_in: string | null;
+  clock_out: string | null;
+  duration_hours: number | null;
+}
+
+export interface AttendanceHistory {
+  days: AttendanceHistoryDay[]; // terbaru dulu, sampai hari ini
+  summary: { presentDays: number; totalHours: number; avgHours: number | null; leaveDays: number; missingClockOut: number };
+  error?: string;
+}
+
+/** Riwayat presensi milik sendiri untuk satu bulan (jam masuk/pulang, durasi, status). */
+export async function getMyAttendanceHistory(year: number, month: number): Promise<AttendanceHistory> {
+  const empty = { days: [], summary: { presentDays: 0, totalHours: 0, avgHours: null, leaveDays: 0, missingClockOut: 0 } };
+  const ctx = await currentEmployee();
+  if (!ctx) return { ...empty, error: 'Not authenticated' };
+  if (!Number.isInteger(year) || year < 2020 || year > 2100 || !Number.isInteger(month) || month < 1 || month > 12) {
+    return { ...empty, error: 'Bulan tidak valid' };
+  }
+  const { db, employee } = ctx;
+
+  const mm = String(month).padStart(2, '0');
+  const from = `${year}-${mm}-01`;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const to = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`;
+  const today = todayWIB();
+  if (from > today) return empty;
+
+  const [atts, leaves, hols] = await Promise.all([
+    db.select({ date: attendances.date, clock_in: attendances.clock_in, clock_out: attendances.clock_out, duration_hours: attendances.duration_hours })
+      .from(attendances)
+      .where(and(eq(attendances.employee_id, employee.id), gte(attendances.date, from), lte(attendances.date, to))),
+    db.select({ start: leave_requests.start_date, end: leave_requests.end_date, type: leave_requests.leave_type })
+      .from(leave_requests)
+      .where(and(eq(leave_requests.employee_id, employee.id), eq(leave_requests.status, 'APPROVED'), lte(leave_requests.start_date, to), gte(leave_requests.end_date, from))),
+    db.select({ date: holidays.date, name: holidays.name }).from(holidays).where(and(gte(holidays.date, from), lte(holidays.date, to))),
+  ]);
+
+  const attBy = new Map(atts.map((a) => [a.date, a]));
+  const holBy = new Map(hols.map((h) => [h.date, h.name]));
+  const days: AttendanceHistoryDay[] = [];
+  const last = to < today ? to : today;
+
+  for (let d = Number(last.slice(8)); d >= 1; d--) {
+    const date = `${year}-${mm}-${String(d).padStart(2, '0')}`;
+    const dow = parseIsoDate(date)!.getUTCDay();
+    const holiday = holBy.get(date) ?? null;
+    const offDay = dow === 0 || dow === 6 || Boolean(holiday);
+    const a = attBy.get(date);
+    const leave = leaves.find((l) => l.start && l.end && l.start <= date && l.end >= date);
+    const r = dayStatus({
+      date, today, offDay, offLabel: holiday ?? (dow === 0 ? 'Minggu' : 'Sabtu'),
+      clockIn: a?.clock_in, clockOut: a?.clock_out, leaveType: offDay ? undefined : leave?.type, // cuti hanya berlaku di hari kerja
+    });
+    days.push({
+      date,
+      status: r.status === 'TIDAK_HADIR' ? 'TIDAK_ADA' : r.status,
+      detail: r.detail,
+      clock_in: a?.clock_in ?? null,
+      clock_out: a?.clock_out ?? null,
+      duration_hours: a?.duration_hours != null ? Number(a.duration_hours) : null,
+    });
+  }
+
+  const present = days.filter((x) => x.status === 'HADIR' || x.status === 'BELUM_PULANG' || x.status === 'TIDAK_CLOCK_OUT');
+  const withHours = days.filter((x) => x.status === 'HADIR' && x.duration_hours != null);
+  const totalHours = withHours.reduce((sum, x) => sum + (x.duration_hours ?? 0), 0);
+  return {
+    days,
+    summary: {
+      presentDays: present.length,
+      totalHours,
+      avgHours: withHours.length > 0 ? totalHours / withHours.length : null,
+      leaveDays: days.filter((x) => x.status === 'CUTI').length,
+      missingClockOut: days.filter((x) => x.status === 'TIDAK_CLOCK_OUT').length,
+    },
+  };
 }

@@ -7,6 +7,7 @@ export const EMPLOYEE_MENU: { label: string; items: MenuItem[] }[] = [
       { icon: "🏠", label: "Beranda", href: "/employee/dashboard" },
       { icon: "👤", label: "Profil Saya", href: "/employee/profile" },
       { icon: "⏰", label: "Presensi", href: "/employee/attendance" },
+      { icon: "🕘", label: "Riwayat Presensi", href: "/employee/attendance/history" },
       { icon: "📅", label: "Cuti", href: "/employee/cuti" },
       { icon: "📄", label: "Dokumen", href: "/employee/documents" },
       { icon: "📋", label: "Asesmen", href: "/employee/assessments" },

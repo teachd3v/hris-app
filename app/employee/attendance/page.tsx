@@ -5,6 +5,7 @@ import { fetchAttendanceData, submitAttendance } from './actions';
 import { MapPin, Camera, Clock, CheckCircle, AlertCircle, Loader2, Navigation2, Smartphone, Lock, ShieldAlert } from 'lucide-react';
 import { getDistanceFromLatLonInKm, OFFICE_LAT, OFFICE_LNG, MAX_RADIUS_KM } from '@/lib/geo';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 import DashboardLayout from '@/components/common/DashboardLayout';
 import { EMPLOYEE_MENU } from '@/lib/navigation';
@@ -312,7 +313,7 @@ export default function AttendancePage() {
             <ol className="text-[12px] text-[var(--ink-3)] space-y-2 font-medium">
               <li className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-full bg-[var(--red-soft)] text-[var(--red)] font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">1</span>
-                Buka browser di HP Anda lalu kunjungi <strong className="text-[var(--ink)]">teach-hris-app.te4ch.workers.dev</strong>.
+                Buka browser di HP Anda lalu kunjungi <strong className="text-[var(--ink)]">hrteach.site</strong>.
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-full bg-[var(--red-soft)] text-[var(--red)] font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">2</span>
@@ -326,6 +327,9 @@ export default function AttendancePage() {
           </div>
 
           {/* Back button */}
+          <Link href="/employee/attendance/history" className="mb-3 w-full flex items-center justify-center gap-2 h-12 rounded-full border border-[var(--red)] text-[var(--red)] font-bold text-[14px] hover:bg-red-50 transition-colors">
+            <Clock size={16} /> Lihat Riwayat Presensi
+          </Link>
           <button
             onClick={() => router.push('/employee/dashboard')}
             className="px-6 py-3 rounded-full bg-[var(--ink)] text-white font-bold text-[13px] hover:bg-black transition-all active:scale-95 shadow-md flex items-center gap-2"
@@ -361,9 +365,12 @@ export default function AttendancePage() {
             {/* Header Title */}
             <div className="flex justify-between items-center w-full mb-6 mt-2">
               <h1 className="text-2xl font-bold tracking-tight text-white drop-shadow-md">Presensi Harian</h1>
+              <div className="flex items-center gap-2">
+              <Link href="/employee/attendance/history" aria-label="Riwayat presensi" className="h-8 px-3 flex justify-center items-center gap-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 shadow-sm text-white text-[11px] font-bold"><Clock size={12} /> Riwayat</Link>
               <button onClick={() => router.back()} className="w-8 h-8 flex justify-center items-center rounded-full bg-white/20 backdrop-blur-md border border-white/30 shadow-sm hover:bg-white/30 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="m15 18-6-6 6-6"/></svg>
               </button>
+              </div>
             </div>
 
             {/* Employee Info Block */}

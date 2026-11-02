@@ -6,6 +6,7 @@ import * as schema from '@/lib/db/schema'
 import { getSubordinates, hasSubordinates } from '@/lib/org-tree'
 import { parseIsoDate } from '@/lib/leave'
 import { todayWIB } from '@/lib/time'
+import { dayStatus } from '@/lib/attendance-status'
 import { and, eq, gte, lte, inArray } from 'drizzle-orm'
 
 async function currentEmployee() {
@@ -87,21 +88,10 @@ export async function getTeamAttendance(date: string): Promise<{ date: string; r
     const clock_in = a?.clock_in ?? null
     const clock_out = a?.clock_out ?? null
     const duration_hours = a?.duration_hours != null ? Number(a.duration_hours) : null
-    let status: TeamAttendanceStatus
-    let detail: string | null = null
-    if (a?.clock_in) {
-      status = a.clock_out ? 'HADIR' : date === today ? 'BELUM_PULANG' : 'TIDAK_CLOCK_OUT'
-    } else if (leaveBy.has(m.id)) {
-      status = 'CUTI'
-      detail = leaveBy.get(m.id) ?? null
-    } else if (offDay) {
-      status = 'LIBUR'
-      detail = holiday ?? (dow === 0 ? 'Minggu' : 'Sabtu')
-    } else if (date > today) {
-      status = 'BELUM_WAKTUNYA'
-    } else {
-      status = date === today ? 'BELUM_HADIR' : 'TIDAK_HADIR'
-    }
+    const { status, detail } = dayStatus({
+      date, today, offDay, offLabel: holiday ?? (dow === 0 ? 'Minggu' : 'Sabtu'),
+      clockIn: a?.clock_in, clockOut: a?.clock_out, leaveType: offDay ? undefined : leaveBy.get(m.id), // cuti hanya berlaku di hari kerja
+    })
     return { ...base, status, detail, clock_in, clock_out, duration_hours }
   })
   return { date, rows, holiday }

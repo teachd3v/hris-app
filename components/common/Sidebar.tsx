@@ -36,7 +36,7 @@ export default function Sidebar({ collapsed, onToggle, menuSections, user, locke
   };
 
   const isActive = (href: string) => {
-    if (href === "/" || href === "/admin" || href === "/employee/dashboard") {
+    if (href === "/" || href === "/admin" || href === "/employee/dashboard" || href === "/employee/attendance") {
       return pathname === href;
     }
     return pathname.startsWith(href);

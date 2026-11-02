@@ -7,6 +7,7 @@ import DashboardLayout from "@/components/common/DashboardLayout";
 import { EMPLOYEE_MENU } from "@/lib/navigation";
 
 const APPS = [
+  { icon: "🕘", label: "Riwayat", desc: "Presensi", href: "/employee/attendance/history", color: "bg-sky-50 text-sky-600" },
   { icon: "📄", label: "Dokumen", desc: "File Resmi", href: "/employee/documents", color: "bg-rose-50 text-rose-600" },
   { icon: "📋", label: "Asesmen", desc: "Evaluasi", href: "/employee/assessments", color: "bg-indigo-50 text-indigo-600" },
   { icon: "💰", label: "Payroll", desc: "Slip Gaji", href: "/employee/coming-soon?feature=payroll", color: "bg-purple-50 text-purple-600", isComingSoon: true },
