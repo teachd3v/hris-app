@@ -18,6 +18,7 @@ import { getDistanceFromLatLonInKm, OFFICE_LAT, OFFICE_LNG } from "@/lib/geo";
 
 export default function GridDashboardClient({
   hasTeam = false,
+  isAdmin = false,
   userName,
   userInitials,
   userPhoto,
@@ -29,6 +30,7 @@ export default function GridDashboardClient({
   userPhoto?: string;
   userTitle: string;
   hasTeam?: boolean;
+  isAdmin?: boolean;
   todayAttendance?: { 
     clockIn?: string; 
     clockOut?: string;
@@ -186,6 +188,18 @@ export default function GridDashboardClient({
               </div>
             </div>
           </div>
+
+          {/* Menu Admin (hanya admin, hanya HP): aksi cepat persetujuan HC, reset password, lihat karyawan */}
+          {isAdmin && (
+            <Link href="/admin/m" className="md:hidden bg-gradient-to-br from-[var(--red)] to-[#991B1B] text-white rounded-[24px] p-4 flex items-center gap-4 shadow-[0_8px_24px_rgba(220,38,38,0.25)] active:scale-[0.99] transition-transform">
+              <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-[22px] shrink-0">🛡️</div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[15px] font-black">Menu Admin</div>
+                <div className="text-[11px] text-white/80">Persetujuan cuti, reset password, data karyawan</div>
+              </div>
+              <span className="text-xl">›</span>
+            </Link>
+          )}
 
           {/* Grid Menu Container (Mobile Quick Access) */}
           <div className="md:hidden bg-white rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-5 border border-[var(--line)]">

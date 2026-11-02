@@ -1,16 +1,9 @@
 import EmployeesList from '../EmployeesList';
 import EmployeeDetail from '../EmployeeDetail';
-import { notFound, redirect } from 'next/navigation';
-import { headers } from 'next/headers';
+import { notFound } from 'next/navigation';
 
 export default async function Page({ params }: { params: Promise<{ slug?: string[] }> }) {
-  const headersList = await headers();
-  const userAgent = headersList.get("user-agent") || "";
-  const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
-  if (isMobile) {
-    redirect('/employee/dashboard');
-  }
-
+  // Tampilan HP ditangani layout: layar sempit melihat pesan "khusus desktop" + tautan ke Menu Admin (/admin/m)
   const { slug } = await params;
   
   if (!slug || slug.length === 0) {

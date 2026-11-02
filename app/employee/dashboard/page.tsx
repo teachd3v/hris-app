@@ -49,6 +49,7 @@ export default async function EmployeeDashboardPage() {
   return (
     <GridDashboardClient 
       hasTeam={employee ? await hasSubordinates(db, employee.id) : false}
+      isAdmin={Boolean((user as any).isAdmin)}
       userName={name} 
       userInitials={initials}
       userPhoto={employee?.photo_url || undefined}
