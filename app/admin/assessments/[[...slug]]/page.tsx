@@ -4,6 +4,7 @@ import AssessmentResult from '../AssessmentResult';
 import { notFound } from 'next/navigation';
 
 export default async function Page({ params }: { params: Promise<{ slug?: string[] }> }) {
+  // Tampilan HP ditangani layout: layar sempit melihat pesan "khusus desktop" + tautan ke Menu Admin (/admin/m)
   const { slug } = await params;
   
   if (!slug || slug.length === 0) {

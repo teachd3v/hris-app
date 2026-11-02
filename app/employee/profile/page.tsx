@@ -1,42 +1,29 @@
-import { auth } from '@/auth'
+import { requireApprovedUserForProfile } from '@/lib/auth-guard'
 import { getDb } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
-import { redirect } from 'next/navigation'
 import ProfileClient from './ProfileClient'
 import { dummyUserProfile } from '@/lib/dummy-data'
 
 export default async function DashboardPage() {
-  const session = await auth()
-  const user = session?.user
-  
-  if (!user || !user.email) {
-    redirect('/')
-  }
+  const { user, profile: empAuth } = await requireApprovedUserForProfile()
 
   const db = getDb()
 
-  let employeeRecords = await db.select().from(schema.employees).where(eq(schema.employees.email, user.email)).limit(1)
+  let employeeRecords = await db.select().from(schema.employees).where(eq(schema.employees.email, user.email!)).limit(1)
   
   if (employeeRecords.length === 0) {
-    // Insert new basic profile if it doesn't exist
-    const newId = crypto.randomUUID();
-    await db.insert(schema.employees).values({
-      id: newId,
-      name: user.name || user.email.split('@')[0] || 'User',
-      email: user.email,
-      nationality: 'Indonesia',
-      religion: 'Islam',
-      country: 'Indonesia',
-    });
-    employeeRecords = await db.select().from(schema.employees).where(eq(schema.employees.id, newId)).limit(1)
-    if (employeeRecords.length === 0) {
-      return <ProfileClient initialData={dummyUserProfile} />
-    }
+    return <ProfileClient initialData={dummyUserProfile} isOnboarding={false} />
   }
 
   const employee = employeeRecords[0]
   const employeeId = employee.id
+
+  let managerName: string | null = null
+  if (employee.manager_id) {
+    const [m] = await db.select({ name: schema.employees.name }).from(schema.employees).where(eq(schema.employees.id, employee.manager_id)).limit(1)
+    managerName = m?.name ?? null
+  }
 
   const [
     family,
@@ -80,6 +67,7 @@ export default async function DashboardPage() {
     initials: (employee.name || '').split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase(),
     photo: employee.photo_url || undefined,
     email: employee.email || '',
+    institutional_email: employee.institutional_email || '',
     phone: employee.phone || '',
     nik: employee.nik || '',
     birth: employee.birth_date || '',
@@ -101,7 +89,7 @@ export default async function DashboardPage() {
     status: employee.status || '-',
     join: employee.join_date || '',
     tenure: employee.tenure || '-',
-    manager: employee.manager || '-',
+    manager: managerName || employee.manager || '-',
     
     bank: employee.bank || '',
     
@@ -198,6 +186,7 @@ export default async function DashboardPage() {
       }))
       .sort((a: any, b: any) => (b.date || '').localeCompare(a.date || '')),
   };
+  const isOnboarding = !empAuth?.profile_completed || empAuth.profile_completed === 0
 
-  return <ProfileClient initialData={mappedProfile} />
+  return <ProfileClient initialData={mappedProfile} isOnboarding={isOnboarding} />
 }

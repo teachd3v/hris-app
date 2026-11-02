@@ -25,9 +25,10 @@ interface SidebarProps {
     initials: string;
     photoUrl?: string;
   };
+  locked?: boolean;
 }
 
-export default function Sidebar({ collapsed, onToggle, menuSections, user }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, menuSections, user, locked = false }: SidebarProps) {
   const pathname = usePathname();
 
   const handleLogout = async () => {
@@ -35,7 +36,7 @@ export default function Sidebar({ collapsed, onToggle, menuSections, user }: Sid
   };
 
   const isActive = (href: string) => {
-    if (href === "/" || href === "/admin" || href === "/employee/dashboard") {
+    if (href === "/" || href === "/admin" || href === "/employee/dashboard" || href === "/employee/attendance") {
       return pathname === href;
     }
     return pathname.startsWith(href);
@@ -43,14 +44,16 @@ export default function Sidebar({ collapsed, onToggle, menuSections, user }: Sid
 
   return (
     <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
-      {/* Unified Collapse Button */}
-      <button
-        className="sidebar-toggle"
-        onClick={onToggle}
-        title={collapsed ? "Buka" : "Tutup"}
-      >
-        {collapsed ? "›" : "‹"}
-      </button>
+      {/* Unified Collapse Button — hidden when locked */}
+      {!locked && (
+        <button
+          className="sidebar-toggle"
+          onClick={onToggle}
+          title={collapsed ? "Buka" : "Tutup"}
+        >
+          {collapsed ? "›" : "‹"}
+        </button>
+      )}
 
       <Link href="/" className="sidebar-header">
         <div className="sidebar-logo" />

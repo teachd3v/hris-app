@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, ArrowLeftRight } from "lucide-react";
+import { LogOut, ArrowLeftRight, Home } from "lucide-react";
 import GlobalSearch from "./GlobalSearch";
 
 import { getSession, signOut } from "next-auth/react";
@@ -12,12 +12,14 @@ export default function Topbar({
   role = "Karyawan", 
   userName = "User", 
   initials = "U",
-  photoUrl
+  photoUrl,
+  showMobileHome = false
 }: { 
   role?: string; 
   userName?: string; 
   initials?: string;
   photoUrl?: string;
+  showMobileHome?: boolean;
 }) {
   const [actualRole, setActualRole] = useState<string | null>(null);
   const router = useRouter();
@@ -26,17 +28,9 @@ export default function Topbar({
     const fetchRole = async () => {
       const session = await getSession();
       if (session?.user) {
-        const empRole = (session as any)?.employee?.role || (session?.user as any)?.role;
-        const ADMIN_EMAILS = ['teachgen2025@gmail.com', 'teach.d3v@gmail.com', 'hudagraph@gmail.com'];
-        const isAdmin = empRole === 'Admin' || ADMIN_EMAILS.includes(session.user.email ?? '') || role === 'Admin';
-        
-        console.log("Topbar Auth Check:", { 
-          email: session.user.email, 
-          empRole,
-          isAdmin,
-          currentPageRole: role 
-        });
-        
+        // Flag dihitung di server (lib/admins.ts); klien tidak punya daftar sendiri
+        const isAdmin = Boolean((session.user as any).isAdmin);
+
         if (isAdmin) {
           setActualRole('Admin');
         } else {
@@ -61,6 +55,11 @@ export default function Topbar({
   return (
     <div className="topbar glass">
       <div className="topbar-left">
+        {showMobileHome && (
+          <Link href="/employee/dashboard" className="md:hidden flex items-center justify-center w-10 h-10 bg-[var(--surface-item)] text-[var(--ink-2)] rounded-full hover:bg-[var(--surface-hover)] transition-colors mr-2">
+            <Home size={18} strokeWidth={2.5} />
+          </Link>
+        )}
         <GlobalSearch />
       </div>
 

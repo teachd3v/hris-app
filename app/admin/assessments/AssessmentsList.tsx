@@ -5,26 +5,7 @@ import { getDb } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { desc, sql } from 'drizzle-orm'
 
-const ADMIN_MENU = [
-  {
-    label: "Manajemen",
-    items: [
-      { icon: "👥", label: "Karyawan", href: "/admin/employees" },
-      { icon: "📊", label: "Asesmen", href: "/admin/assessments" },
-      { icon: "🏠", label: "Dasbor", href: "/admin/dashboard", isComingSoon: true },
-      { icon: "⏰", label: "Presensi", href: "/admin/attendance", isComingSoon: true },
-      { icon: "📅", label: "Pengajuan Cuti", href: "/admin/leave-requests", isComingSoon: true },
-      { icon: "💰", label: "Payroll", href: "/admin/payroll", isComingSoon: true },
-    ]
-  },
-  {
-    label: "Lainnya",
-    items: [
-      { icon: "📈", label: "Laporan", href: "/admin/reports", isComingSoon: true },
-      { icon: "⚙️", label: "Pengaturan", href: "/admin/settings", isComingSoon: true },
-    ]
-  }
-];
+import { ADMIN_MENU } from "@/lib/navigation";
 
 export default async function AdminAssessmentsPage() {
   const { user, profile: adminProfile } = await requireAdmin();
@@ -33,14 +14,14 @@ export default async function AdminAssessmentsPage() {
   const [
     templates,
     allAssessments,
-    empCountResult,
+    allEmployees,
   ] = await Promise.all([
-    db.select().from(schema.assessment_templates).orderBy(desc(schema.assessment_templates.created_at)),
+    db.select().from(schema.assessment_templates),
     db.select({ template_id: schema.employee_assessments.template_id, status: schema.employee_assessments.status }).from(schema.employee_assessments),
-    db.select({ count: sql<number>`count(*)` }).from(schema.employees),
+    db.select({ id: schema.employees.id }).from(schema.employees),
   ]);
 
-  const employeesCount = empCountResult[0]?.count || 0;
+  const employeesCount = allEmployees?.length || 0;
 
   const adminName = adminProfile?.name || user.email?.split('@')[0] || "Admin";
   const adminInitials = adminName.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);

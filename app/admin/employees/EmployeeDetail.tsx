@@ -2,6 +2,11 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth-guard";
 import DashboardLayout from "@/components/common/DashboardLayout";
 import Link from "next/link";
+import ManagerSelect from "@/components/admin/ManagerSelect";
+import { isTopLeader } from "@/lib/org";
+import { isAdminEmployee, isSuperAdminEmployee } from "@/lib/admins";
+import DeleteEmployeeButton from "@/components/admin/DeleteEmployeeButton";
+import ResetPasswordButton from "@/components/admin/ResetPasswordButton";
 import EmployeeProfileTabs from "@/components/admin/EmployeeProfileTabs";
 import { getDb } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
@@ -10,30 +15,11 @@ import { eq, desc } from 'drizzle-orm'
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const ADMIN_MENU = [
-  {
-    label: "Manajemen",
-    items: [
-      { icon: "👥", label: "Karyawan", href: "/admin/employees" },
-      { icon: "📊", label: "Asesmen", href: "/admin/assessments" },
-      { icon: "🏠", label: "Dasbor", href: "/admin/dashboard", isComingSoon: true },
-      { icon: "⏰", label: "Presensi", href: "/admin/attendance", isComingSoon: true },
-      { icon: "📅", label: "Pengajuan Cuti", href: "/admin/leave-requests", isComingSoon: true },
-      { icon: "💰", label: "Payroll", href: "/admin/payroll", isComingSoon: true },
-    ]
-  },
-  {
-    label: "Lainnya",
-    items: [
-      { icon: "📈", label: "Laporan", href: "/admin/reports", isComingSoon: true },
-      { icon: "⚙️", label: "Pengaturan", href: "/admin/settings", isComingSoon: true },
-    ]
-  }
-];
+import { ADMIN_MENU } from "@/lib/navigation";
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { user, profile: adminProfile } = await requireAdmin();
+  const { user, profile: adminProfile, isSuperAdmin } = await requireAdmin();
   const db = getDb();
 
   // Fetch ALL employee data from all tables
@@ -53,7 +39,8 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     promotions,
     interests,
     emergency,
-    documents
+    documents,
+    allEmployees
   ] = await Promise.all([
     db.select().from(schema.employees).where(eq(schema.employees.id, id)).limit(1),
     db.select().from(schema.family_members).where(eq(schema.family_members.employee_id, id)),
@@ -70,11 +57,16 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     db.select().from(schema.promotion_histories).where(eq(schema.promotion_histories.employee_id, id)).orderBy(desc(schema.promotion_histories.date)),
     db.select().from(schema.career_interests).where(eq(schema.career_interests.employee_id, id)),
     db.select().from(schema.emergency_contacts).where(eq(schema.emergency_contacts.employee_id, id)),
-    db.select().from(schema.employee_documents).where(eq(schema.employee_documents.employee_id, id))
+    db.select().from(schema.employee_documents).where(eq(schema.employee_documents.employee_id, id)),
+    db.select({ id: schema.employees.id, name: schema.employees.name, title: schema.employees.title, dept: schema.employees.dept }).from(schema.employees).orderBy(schema.employees.name)
   ]);
 
   if (employeeRecords.length === 0) notFound();
   const employee = employeeRecords[0];
+
+  const targetIsSuperAdmin = isSuperAdminEmployee(employee);
+  // Akun admin hanya dikelola super admin; akun super admin tidak bisa diubah/dihapus siapa pun dari sini
+  const canManageAccount = !targetIsSuperAdmin && (isSuperAdmin || !isAdminEmployee(employee));
 
   const adminName = adminProfile?.name || user.email?.split('@')[0] || "Admin";
   const adminInitials = adminName.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
@@ -127,8 +119,28 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           <div className="flex flex-col gap-2 shrink-0 md:pt-2">
             <button className="btn btn-primary btn-sm">Validasi Data</button>
             <button className="btn btn-ghost btn-sm">Cetak Profil (PDF)</button>
+            {canManageAccount ? (
+              <>
+                <ResetPasswordButton employeeId={employee.id} employeeName={employee.name || employee.email || "karyawan"} />
+                {employee.id !== adminProfile?.id && (employee.email || employee.institutional_email) && (
+                  <DeleteEmployeeButton employeeId={employee.id} employeeName={employee.name || "karyawan"} employeeEmail={(employee.email || employee.institutional_email)!} />
+                )}
+              </>
+            ) : (
+              <p className="text-[11px] font-medium text-ink-3 max-w-[180px]">
+                {targetIsSuperAdmin ? "Akun super admin tidak dapat diubah." : "Akun admin hanya dapat dikelola oleh super admin."}
+              </p>
+            )}
           </div>
         </div>
+
+        {/* Atasan Langsung */}
+        <ManagerSelect
+          employeeId={employee.id}
+          currentManagerId={employee.manager_id}
+          isTopLeader={isTopLeader(employee)}
+          candidates={allEmployees.filter((e) => e.id !== employee.id).map((e) => ({ id: e.id, name: e.name || "(tanpa nama)", subtitle: [e.title, e.dept].filter(Boolean).join(" • ") }))}
+        />
 
         {/* Main Content with Tabs */}
         <EmployeeProfileTabs 

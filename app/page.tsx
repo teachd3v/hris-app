@@ -2,28 +2,26 @@ import { ShieldCheck, Tag } from "lucide-react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import LoginButton from "@/components/auth/LoginButton";
+import LoginForm from "@/components/auth/LoginForm";
 
 export default async function Home() {
   const session = await auth();
   const user = session?.user;
 
+  // Detect mobile device on server
+  const headersList = await headers();
+  const userAgent = headersList.get("user-agent") || "";
+  const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+
   if (user) {
-    const ADMIN_EMAILS = ['teachgen2025@gmail.com', 'teach.d3v@gmail.com'];
-    const emp = (session as any).employee;
-    const isAdmin = emp?.role === 'Admin' || ADMIN_EMAILS.includes(user.email ?? '');
-    
-    if (isAdmin) {
+    const isAdmin = Boolean((user as any).isAdmin);
+
+    if (isAdmin && !isMobile) {
       redirect('/admin/employees');
     } else {
       redirect('/employee/dashboard');
     }
   }
-
-  // Detect mobile device on server
-  const headersList = await headers();
-  const userAgent = headersList.get("user-agent") || "";
-  const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
 
   return isMobile ? (
     <MobileLogin />
@@ -81,10 +79,10 @@ function DesktopLogin() {
           <div className="glass-strong p-10 md:p-14 rounded-[48px] border border-[var(--glass-border)] shadow-[0_40px_120px_rgba(0,0,0,0.5)] max-w-lg mx-auto lg:mr-0">
             <div className="mb-10 text-center lg:text-left">
               <h2 className="text-3xl font-black text-[var(--ink)] mb-3 tracking-tight">Masuk Portal</h2>
-              <p className="text-[var(--ink-3)] text-sm font-medium">Silakan masuk menggunakan akun Google Anda.</p>
+              <p className="text-[var(--ink-3)] text-sm font-medium">Silakan masuk menggunakan email dan password Anda.</p>
             </div>
 
-            <LoginButton />
+            <LoginForm />
           </div>
         </div>
       </div>
@@ -129,7 +127,7 @@ function MobileLogin() {
             <p className="text-[var(--ink-3)] text-xs">Silakan login untuk melanjutkan</p>
           </div>
           
-          <LoginButton />
+          <LoginForm />
 
           <div className="mt-5 flex justify-center items-center gap-2 text-[10px] font-bold text-[var(--ink-4)] uppercase tracking-wider">
             <ShieldCheck size={14} className="text-[var(--red)]" />

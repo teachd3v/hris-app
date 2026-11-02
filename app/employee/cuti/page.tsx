@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Calendar as CalendarIcon, 
@@ -17,53 +17,27 @@ import {
   CalendarRange,
   CornerDownRight,
   PlaneTakeoff,
-  Users
+  Users,
+  Home
 } from 'lucide-react';
+import Link from 'next/link';
 import DashboardLayout from '@/components/common/DashboardLayout';
 import { 
   getLeaveRequests, 
   getEmployeeLeaveInfo, 
   getTeamApprovedLeaves, 
+  getManagerApprovals,
+  getHolidays,
+  approveByManager,
   createLeaveRequest, 
   cancelLeaveRequest, 
-  type LeaveRequest, 
-  type LeaveCategory 
+  type LeaveRequest
 } from './actions';
+import { LEAVE_TYPES, calculateLeaveDuration, validateLeaveDates, holidaysInRange, type LeaveCategory } from '@/lib/leave';
+import ApprovalList from '@/components/cuti/ApprovalList';
 
-const EMPLOYEE_MENU = [
-  {
-    label: "Utama",
-    items: [
-      { icon: "👤", label: "Profil Saya", href: "/employee/dashboard" },
-      { icon: "📄", label: "Dokumen", href: "/employee/documents" },
-      { icon: "📋", label: "Asesmen", href: "/employee/assessments" },
-    ],
-  },
-  {
-    label: "Lainnya",
-    items: [
-      { icon: "🏠", label: "Beranda", href: "/employee/beranda", isComingSoon: true },
-      { icon: "⏰", label: "Presensi", href: "/employee/presensi", isComingSoon: true },
-      { icon: "📅", label: "Cuti", href: "/employee/cuti" },
-      { icon: "💰", label: "Payroll", href: "/employee/payroll", isComingSoon: true },
-      { icon: "⚙️", label: "Pengaturan", href: "/employee/settings", isComingSoon: true },
-    ],
-  },
-];
+import { EMPLOYEE_MENU } from "@/lib/navigation";
 
-const LEAVE_TYPES: { key: LeaveCategory; label: string; desc: string; requiresAttachment?: boolean }[] = [
-  { key: 'Cuti Tahunan', label: 'Cuti Tahunan (12 Hari/Thn)', desc: 'Mengurangi jatah cuti tahunan reguler.' },
-  { key: 'Cuti Ayah', label: 'Cuti Ayah (5 Hari)', desc: 'Khusus karyawan laki-laki untuk kelahiran anak.' },
-  { key: 'Cuti Berkabung', label: 'Cuti Berkabung (2 Hari)', desc: 'Untuk duka cita keluarga inti wafat.' },
-  { key: 'Cuti Melahirkan', label: 'Cuti Melahirkan (3 Bulan)', desc: 'Khusus karyawan perempuan.' },
-  { key: 'Cuti Pernikahan', label: 'Cuti Pernikahan (3 Hari)', desc: 'Untuk hari pernikahan karyawan.' },
-  { key: 'Cuti Unpaid', label: 'Cuti Diluar Tanggungan (Unpaid)', desc: 'Tidak memotong kuota tahunan, gaji dipotong.' },
-  { key: 'Sakit', label: 'Izin Sakit', desc: 'Memerlukan surat keterangan dokter.', requiresAttachment: true },
-  { key: 'Ganti Hari', label: 'Ganti Hari', desc: 'Mengambil kompensasi dari masuk di hari libur.' },
-  { key: 'Izin Terlambat', label: 'Izin Keterlambatan masuk', desc: 'Memerlukan detail jam estimasi kehadiran.' },
-  { key: 'Izin Pulang Cepat', label: 'Izin Pulang Cepat', desc: 'Memerlukan detail jam estimasi pulang.' },
-  { key: 'Dinas Luar Kota', label: 'Dinas Luar Kota / SPD', desc: 'Perjalanan dinas resmi luar kota.' }
-];
 
 export default function LeavePage() {
   const router = useRouter();
@@ -72,7 +46,10 @@ export default function LeavePage() {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [employeeInfo, setEmployeeInfo] = useState<any>(null);
   const [teamLeaves, setTeamLeaves] = useState<LeaveRequest[]>([]);
+  const [managerApprovals, setManagerApprovals] = useState<LeaveRequest[]>([]);
+  const [holidayList, setHolidayList] = useState<{ date: string; name: string; type: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
@@ -92,7 +69,12 @@ export default function LeavePage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const info = await getEmployeeLeaveInfo();
+      if ('error' in info) {
+        setLoadError(info.error);
+        return;
+      }
       setEmployeeInfo(info);
 
       const requests = await getLeaveRequests();
@@ -100,8 +82,12 @@ export default function LeavePage() {
 
       const team = await getTeamApprovedLeaves();
       setTeamLeaves(team);
+
+      setManagerApprovals(await getManagerApprovals());
+      setHolidayList(await getHolidays());
     } catch (err: any) {
       console.error(err);
+      setLoadError('Gagal memuat sebagian data. Muat ulang halaman.');
     } finally {
       setLoading(false);
     }
@@ -111,42 +97,15 @@ export default function LeavePage() {
     fetchData();
   }, [fetchData]);
 
-  // Business Days Calculator
-  const calculateDuration = useCallback((type: LeaveCategory, start: string, end: string) => {
-    if (!start || !end) return 0;
-    const sDate = new Date(start);
-    const eDate = new Date(end);
-    if (isNaN(sDate.getTime()) || isNaN(eDate.getTime()) || sDate > eDate) return 0;
-
-    // Untuk Izin Terlambat / Pulang Cepat
-    if (type === 'Izin Terlambat' || type === 'Izin Pulang Cepat') {
-      return 1;
-    }
-
-    // Untuk Cuti Melahirkan (Dihitung Hari Kalender karena berdurasi bulanan)
-    if (type === 'Cuti Melahirkan') {
-      const timeDiff = eDate.getTime() - sDate.getTime();
-      return Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
-    }
-
-    // Default: Hitung Hari Kerja (Senin - Jumat)
-    let workingDays = 0;
-    const current = new Date(sDate);
-    while (current <= eDate) {
-      const day = current.getDay();
-      if (day !== 0 && day !== 6) { // Bukan Minggu (0) dan Sabtu (6)
-        workingDays++;
-      }
-      current.setDate(current.getDate() + 1);
-    }
-    return workingDays;
-  }, []);
+  const holidayMap = useMemo(() => new Map(holidayList.map((h) => [h.date, h])), [holidayList]);
+  const holidaySet = useMemo(() => new Set(holidayList.map((h) => h.date)), [holidayList]);
+  const calculateDuration = calculateLeaveDuration;
 
   // Update duration whenever date ranges change
   useEffect(() => {
-    const days = calculateDuration(selectedType, startDate, endDate);
+    const days = calculateDuration(selectedType, startDate, endDate, holidaySet);
     setDurationDays(days);
-  }, [selectedType, startDate, endDate, calculateDuration]);
+  }, [selectedType, startDate, endDate, holidaySet]);
 
   // Handle new submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -159,8 +118,9 @@ export default function LeavePage() {
       return;
     }
 
-    if (durationDays <= 0) {
-      setFormError('Tanggal akhir harus setelah atau sama dengan tanggal mulai.');
+    const dateError = validateLeaveDates(selectedType, startDate, endDate, holidaySet);
+    if (dateError) {
+      setFormError(dateError);
       return;
     }
 
@@ -174,13 +134,10 @@ export default function LeavePage() {
       return;
     }
 
-    // Validasi Kuota
-    if (selectedType === 'Cuti Tahunan' && durationDays > employeeInfo?.leave_available) {
-      setFormError(`Kuota Cuti Tahunan Anda tidak mencukupi (Tersisa ${employeeInfo?.leave_available} Hari).`);
-      return;
-    }
-    if (selectedType === 'Ganti Hari' && durationDays > employeeInfo?.leave_ganti_hari) {
-      setFormError(`Kuota Ganti Hari Anda tidak mencukupi (Tersisa ${employeeInfo?.leave_ganti_hari} Hari).`);
+    // Validasi Kuota (server tetap memvalidasi ulang)
+    const bal = employeeInfo?.balances?.find((b: any) => b.type === selectedType);
+    if (bal && bal.remaining !== null && durationDays > bal.remaining) {
+      setFormError(`Kuota ${selectedType} Anda tidak mencukupi (Tersisa ${Math.max(bal.remaining, 0)} Hari).`);
       return;
     }
 
@@ -209,7 +166,11 @@ export default function LeavePage() {
       if (endTime) formData.append('end_time', endTime);
       if (attachment) formData.append('attachment', attachment);
 
-      await createLeaveRequest(formData);
+      const res = await createLeaveRequest(formData);
+      if (res?.error) {
+        setFormError(res.error);
+        return;
+      }
       
       // Reset Form & Close
       setSelectedType('Cuti Tahunan');
@@ -235,7 +196,8 @@ export default function LeavePage() {
     if (!confirm('Apakah Anda yakin ingin membatalkan pengajuan cuti ini?')) return;
     setCancellingId(id);
     try {
-      await cancelLeaveRequest(id);
+      const res = await cancelLeaveRequest(id);
+      if (res?.error) alert(res.error);
       await fetchData();
     } catch (err: any) {
       alert(err.message || 'Gagal membatalkan pengajuan.');
@@ -271,8 +233,27 @@ export default function LeavePage() {
       userInitials={employeeInfo?.name ? employeeInfo.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : 'U'}
       userPhoto={undefined}
       menuSections={EMPLOYEE_MENU}
+      hideTopbar={true}
+      hideBottomNav={true}
+      noPadding={true}
     >
-      <div className="page-head flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div className="flex flex-col min-h-screen md:min-h-0 bg-[var(--bg)] md:bg-transparent pb-8">
+      
+      {/* Mobile Hero Header */}
+      <div className="relative pt-5 pb-14 px-6 bg-[var(--red)] text-white rounded-b-[40px] md:hidden overflow-hidden shadow-md shrink-0">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full blur-[40px] -mr-20 -mt-20"></div>
+        
+        <Link href="/employee/dashboard" className="absolute top-6 left-6 z-20 w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full transition-colors">
+          <Home size={18} strokeWidth={2.5} className="text-white" />
+        </Link>
+
+        <div className="relative z-10 text-center flex flex-col items-center mt-2">
+          <h1 className="text-white/90 text-[14px] font-bold tracking-widest uppercase mb-2">Cuti & Izin</h1>
+        </div>
+      </div>
+
+      {/* Desktop Header */}
+      <div className="hidden md:flex page-head flex-col md:flex-row md:items-end justify-between gap-6 px-5 pt-5">
         <div>
           <span className="eyebrow">Manajemen Waktu</span>
           <h1 className="text-ink">Cuti & Izin</h1>
@@ -287,6 +268,20 @@ export default function LeavePage() {
         </button>
       </div>
 
+      {/* Mobile Overlapping Card & Content Wrapper */}
+      <div className="relative z-20 px-4 md:px-5 -mt-8 md:mt-0 flex flex-col gap-3 md:gap-5">
+        
+        {/* Mobile Overlapping Card */}
+        <div className="md:hidden bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-3 border border-[var(--line)] flex flex-col items-center text-center">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-[var(--red)] text-white rounded-full font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-500/20 active:scale-95"
+          >
+            <Plus size={20} strokeWidth={3} />
+            Buat Pengajuan
+          </button>
+        </div>
+
       {loading ? (
         <div className="py-20 flex flex-col items-center justify-center text-center glass rounded-[32px] border-line-2">
           <Loader2 size={40} className="text-ink-3 animate-spin mb-4" />
@@ -294,50 +289,57 @@ export default function LeavePage() {
         </div>
       ) : (
         <>
-          {/* Quota Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {/* Card 1: Cuti Tersedia */}
-            <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.03)] p-5 border border-[var(--line)] flex items-center gap-4 hover:shadow-md transition-all">
-              <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 shadow-inner shrink-0">
-                <CheckCircle2 size={24} />
+          {loadError && (
+            <div role="alert" className="p-4 bg-red-50 border border-red-100 rounded-2xl text-[12px] text-red-800 flex items-start justify-between gap-3">
+              <span><strong>Data cuti gagal dimuat.</strong> {loadError}</span>
+              <button type="button" onClick={() => window.location.reload()} className="shrink-0 px-3 py-1.5 rounded-xl bg-white border border-red-200 font-bold">Muat ulang</button>
+            </div>
+          )}
+
+          {/* Ringkasan jatah: 2 kolom ringkas */}
+          <div className="grid grid-cols-2 gap-3 md:gap-5">
+            <div className="bg-white rounded-[20px] md:rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.03)] p-3 md:p-5 border border-[var(--line)] flex items-center gap-3 md:gap-4">
+              <div className="w-9 h-9 md:w-12 md:h-12 bg-green-50 rounded-xl md:rounded-2xl flex items-center justify-center text-green-600 shadow-inner shrink-0">
+                <CheckCircle2 className="w-[18px] h-[18px] md:w-6 md:h-6" />
               </div>
-              <div>
-                <p className="text-[10px] text-[var(--ink-3)] font-bold uppercase tracking-wider">Cuti Tersedia</p>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-2xl font-black text-ink">{employeeInfo?.leave_available}</span>
-                  <span className="text-[12px] font-bold text-ink-3">Hari</span>
+              <div className="min-w-0">
+                <p className="text-[10px] text-[var(--ink-3)] font-bold uppercase tracking-wider">Cuti</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl md:text-2xl font-black text-ink">{employeeInfo?.leave_available}</span>
+                  <span className="text-[12px] md:text-[14px] font-bold text-ink-3">/ {employeeInfo?.leave_total}</span>
+                  <span className="text-[11px] font-bold text-ink-3">Hari</span>
                 </div>
               </div>
             </div>
 
-            {/* Card 2: Cuti Terpakai */}
-            <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.03)] p-5 border border-[var(--line)] flex items-center gap-4 hover:shadow-md transition-all">
-              <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-[var(--red)] shadow-inner shrink-0">
-                <Clock size={24} />
+            <div className="bg-white rounded-[20px] md:rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.03)] p-3 md:p-5 border border-[var(--line)] flex items-center gap-3 md:gap-4">
+              <div className="w-9 h-9 md:w-12 md:h-12 bg-indigo-50 rounded-xl md:rounded-2xl flex items-center justify-center text-indigo-600 shadow-inner shrink-0">
+                <CalendarRange className="w-[18px] h-[18px] md:w-6 md:h-6" />
               </div>
-              <div>
-                <p className="text-[10px] text-[var(--ink-3)] font-bold uppercase tracking-wider">Cuti Terpakai</p>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-2xl font-black text-ink">{employeeInfo?.leave_used}</span>
-                  <span className="text-[12px] font-bold text-ink-3">Hari</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 3: Kuota Ganti Hari */}
-            <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.03)] p-5 border border-[var(--line)] flex items-center gap-4 hover:shadow-md transition-all">
-              <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shadow-inner shrink-0">
-                <CalendarRange size={24} />
-              </div>
-              <div>
-                <p className="text-[10px] text-[var(--ink-3)] font-bold uppercase tracking-wider">Kompensasi Ganti Hari</p>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-2xl font-black text-ink">{employeeInfo?.leave_ganti_hari}</span>
-                  <span className="text-[12px] font-bold text-ink-3">Hari</span>
+              <div className="min-w-0">
+                <p className="text-[10px] text-[var(--ink-3)] font-bold uppercase tracking-wider">Ganti Hari</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl md:text-2xl font-black text-ink">{employeeInfo?.leave_ganti_hari}</span>
+                  <span className="text-[11px] font-bold text-ink-3">Hari</span>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Persetujuan bawahan (khusus atasan) */}
+          {managerApprovals.length > 0 && (
+            <div className="bg-white rounded-[24px] border border-orange-200 p-5">
+              <h3 className="text-[14px] font-black text-ink mb-3">Persetujuan Bawahan ({managerApprovals.length})</h3>
+              <ApprovalList
+                requests={managerApprovals}
+                onDecide={async (id, approve, notes) => {
+                  const res = await approveByManager(id, approve, notes);
+                  if (!res.error) await fetchData();
+                  return res;
+                }}
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left/Middle Content: Leave Request History */}
@@ -392,7 +394,7 @@ export default function LeavePage() {
                           )}
                         </div>
 
-                        {req.status === 'PENDING_DIRECT_MANAGER' && (
+                        {(req.status === 'PENDING_DIRECT_MANAGER' || req.status === 'PENDING_HC_ADMIN') && (
                           <button
                             disabled={cancellingId === req.id}
                             onClick={() => handleCancel(req.id)}
@@ -500,13 +502,22 @@ export default function LeavePage() {
                 <select
                   value={selectedType}
                   onChange={(e) => {
-                    setSelectedType(e.target.value as LeaveCategory);
+                    const next = e.target.value as LeaveCategory;
+                    setSelectedType(next);
+                    // Izin per jam hanya satu tanggal: tanggal selesai mengikuti tanggal mulai
+                    if (LEAVE_TYPES.find(t => t.key === next)?.timeBased) setEndDate(startDate);
                     setFormError('');
                   }}
                   className="w-full h-12 px-4 rounded-2xl bg-white border border-line-2 text-[13px] font-semibold text-ink focus:outline-none focus:border-ink transition-colors shadow-sm"
                 >
                   {LEAVE_TYPES.map((type) => (
-                    <option key={type.key} value={type.key}>{type.label}</option>
+                    <option key={type.key} value={type.key}>
+                      {type.label}
+                      {(() => {
+                        const b = employeeInfo?.balances?.find((x: any) => x.type === type.key);
+                        return b && b.remaining !== null ? ` — sisa ${Math.max(b.remaining, 0)} hari` : '';
+                      })()}
+                    </option>
                   ))}
                 </select>
                 <p className="text-[10px] text-ink-3 mt-1 font-medium italic">
@@ -524,6 +535,7 @@ export default function LeavePage() {
                     value={startDate}
                     onChange={(e) => {
                       setStartDate(e.target.value);
+                      if (LEAVE_TYPES.find(t => t.key === selectedType)?.timeBased) setEndDate(e.target.value);
                       setFormError('');
                     }}
                     className="w-full h-12 px-4 rounded-2xl bg-white border border-line-2 text-[13px] font-semibold text-ink focus:outline-none focus:border-ink transition-colors shadow-sm"
@@ -535,11 +547,12 @@ export default function LeavePage() {
                     type="date"
                     required
                     value={endDate}
+                    disabled={Boolean(LEAVE_TYPES.find(t => t.key === selectedType)?.timeBased)}
                     onChange={(e) => {
                       setEndDate(e.target.value);
                       setFormError('');
                     }}
-                    className="w-full h-12 px-4 rounded-2xl bg-white border border-line-2 text-[13px] font-semibold text-ink focus:outline-none focus:border-ink transition-colors shadow-sm"
+                    className="w-full h-12 px-4 disabled:opacity-60 disabled:bg-gray-50 rounded-2xl bg-white border border-line-2 text-[13px] font-semibold text-ink focus:outline-none focus:border-ink transition-colors shadow-sm"
                   />
                 </div>
               </div>
@@ -549,6 +562,15 @@ export default function LeavePage() {
                 <span className="text-[11px] font-bold text-ink-3 uppercase tracking-wider">Total Hari Terhitung:</span>
                 <span className="text-[16px] font-black text-ink">{durationDays} Hari Kerja</span>
               </div>
+              {(() => {
+                const inRange = holidaysInRange(startDate, endDate, holidayMap);
+                if (inRange.length === 0) return null;
+                return (
+                  <p className="text-[11px] text-ink-3 font-medium -mt-3 px-1" data-testid="holiday-hint">
+                    Tidak dihitung (libur): {inRange.map((h) => `${new Date(h.date + 'T00:00:00Z').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: 'UTC' })} ${h.name}`).join(', ')}
+                  </p>
+                );
+              })()}
 
               {/* Izin Terlambat / Pulang Cepat Details */}
               {(selectedType === 'Izin Terlambat' || selectedType === 'Izin Pulang Cepat') && (
@@ -587,7 +609,7 @@ export default function LeavePage() {
                   <label className="text-[11px] font-bold text-ink-2 uppercase tracking-wider">Lampiran Dokumen (Surat Dokter)*</label>
                   <input
                     type="file"
-                    accept="image/*,application/pdf"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
                     required
                     onChange={(e) => {
                       const files = e.target.files;
@@ -598,7 +620,7 @@ export default function LeavePage() {
                     }}
                     className="w-full px-4 py-2.5 rounded-2xl bg-white border border-line-2 text-[11px] font-bold text-ink-3 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-[11px] file:font-black file:bg-ink file:text-white hover:file:bg-black file:cursor-pointer shadow-sm"
                   />
-                  <p className="text-[10px] text-ink-4 mt-1 font-medium">Format berkas: JPG, PNG, atau PDF (Maks. 2MB)</p>
+                  <p className="text-[10px] text-ink-4 mt-1 font-medium">Format berkas: JPG, PNG, WEBP, atau PDF (Maks. 5MB)</p>
                 </div>
               )}
 
@@ -646,6 +668,8 @@ export default function LeavePage() {
           </div>
         </div>
       )}
+      </div>
+    </div>
     </DashboardLayout>
   );
 }

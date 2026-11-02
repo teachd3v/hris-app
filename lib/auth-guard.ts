@@ -3,19 +3,88 @@ import { auth } from '@/auth'
 import { getDb } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { isAdminEmployee, isSuperAdminEmployee } from '@/lib/admins'
 
-const ADMIN_EMAILS = ['teachgen2025@gmail.com', 'teach.d3v@gmail.com']
+export { ADMIN_EMAILS } from '@/lib/admins'
 
-export async function requireAdmin() {
+/** approval_status kosong = akun lama, dianggap sudah disetujui. */
+export function approvalOf(emp: { approval_status: string | null }) {
+  return emp.approval_status || 'Approved'
+}
+
+async function getSessionEmployee() {
   const session = await auth()
-  if (!session?.user?.email) redirect('/')
+  const employeeId = session?.user?.id
+  if (!session?.user?.email || !employeeId) redirect('/')
 
   const db = getDb()
-  const empRecords = await db.select({ role: schema.employees.role, name: schema.employees.name, photo_url: schema.employees.photo_url }).from(schema.employees).where(eq(schema.employees.email, session.user.email)).limit(1)
-  
-  const profile = empRecords.length > 0 ? empRecords[0] : null
-  const isAdmin = profile?.role === 'Admin' || ADMIN_EMAILS.includes(session.user.email)
-  if (!isAdmin) redirect('/employee/dashboard')
+  const [emp] = await db.select().from(schema.employees).where(eq(schema.employees.id, employeeId)).limit(1)
+  if (!emp) redirect('/')
+  return { user: session.user, emp }
+}
 
-  return { user: session.user, profile }
+/**
+ * Used by the profile page itself.
+ * Only checks auth + approval status, NOT profile_completed
+ * (to avoid redirect loop when user is on the profile page filling in data).
+ */
+export async function requireApprovedUserForProfile() {
+  const { user, emp } = await getSessionEmployee()
+  const status = approvalOf(emp)
+  if (status === 'Pending') redirect('/pending-approval')
+  if (status === 'Rejected') redirect('/rejected')
+  return { user, profile: emp }
+}
+
+/**
+ * Used by all other employee pages.
+ * Checks auth + approval + profile_completed.
+ * If profile not completed → forces user to /employee/profile first.
+ */
+export async function requireApprovedUser() {
+  const { user, emp } = await getSessionEmployee()
+  const status = approvalOf(emp)
+  if (status === 'Pending') redirect('/pending-approval')
+  if (status === 'Rejected') redirect('/rejected')
+
+  // Approved but profile not yet completed → force to profile page
+  if (!emp.profile_completed) redirect('/employee/profile')
+
+  return { user, profile: emp }
+}
+
+/** Konteks admin untuk server action: null jika belum login / bukan admin (tanpa redirect). */
+export async function getAdminContext() {
+  const session = await auth()
+  const employeeId = session?.user?.id
+  if (!session?.user?.email || !employeeId) return null
+
+  const db = getDb()
+  const [emp] = await db.select().from(schema.employees).where(eq(schema.employees.id, employeeId)).limit(1)
+  if (!emp) return null
+
+  if (!isAdminEmployee(emp, session.user.email)) return null
+  return { user: session.user, emp, isSuperAdmin: isSuperAdminEmployee(emp, session.user.email) }
+}
+
+export async function requireAdmin() {
+  const ctx = await getAdminContext()
+  if (!ctx) {
+    const session = await auth()
+    redirect(session?.user?.id ? '/employee/dashboard' : '/')
+  }
+  const { user, emp, isSuperAdmin } = ctx
+
+  return {
+    user,
+    isSuperAdmin,
+    profile: { id: emp.id, role: emp.role, name: emp.name, photo_url: emp.photo_url, email: emp.email, approval_status: emp.approval_status },
+  }
+}
+
+/** Halaman khusus super admin; admin biasa dialihkan ke daftar karyawan. */
+export async function requireSuperAdmin() {
+  const ctx = await requireAdmin()
+  if (!ctx.isSuperAdmin) redirect('/admin/employees')
+  return ctx
 }

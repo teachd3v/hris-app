@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, numeric, primaryKey } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, numeric, primaryKey, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 
 export const achievements = sqliteTable("achievements", {
   id: text("id").primaryKey(),
@@ -16,7 +16,7 @@ export const assessment_templates = sqliteTable("assessment_templates", {
   category: text("category"),
   description: text("description"),
   opening_text: text("opening_text"),
-  schema: text("schema", { mode: "json" }),
+  schema: text("schema"),
   created_at: text("created_at"),
   updated_at: text("updated_at"),
 });
@@ -37,7 +37,10 @@ export const attendances = sqliteTable("attendances", {
   face_match_score: text("face_match_score"),
   status: text("status"),
   created_at: text("created_at"),
-});
+}, (t) => ({
+  // Satu catatan presensi per karyawan per hari
+  employeeDateUnique: uniqueIndex("attendances_employee_date_unique").on(t.employee_id, t.date),
+}));
 
 export const career_interests = sqliteTable("career_interests", {
   id: text("id").primaryKey(),
@@ -82,7 +85,7 @@ export const employee_assessments = sqliteTable("employee_assessments", {
   template_id: text("template_id"),
   status: text("status"),
   deadline: text("deadline"),
-  answers: text("answers", { mode: "json" }),
+  answers: text("answers"),
   score: numeric("score"),
   feedback: text("feedback"),
   submitted_at: text("submitted_at"),
@@ -109,6 +112,7 @@ export const employees = sqliteTable("employees", {
   employee_code: text("employee_code"),
   name: text("name"),
   email: text("email"),
+  institutional_email: text("institutional_email"),
   phone: text("phone"),
   nik: text("nik"),
   birth_date: text("birth_date"),
@@ -138,6 +142,8 @@ export const employees = sqliteTable("employees", {
   updated_at: text("updated_at"),
   blood_type: text("blood_type"),
   role: text("role"),
+  approval_status: text("approval_status"),
+  profile_completed: integer("profile_completed"),
   ktp_address: text("ktp_address"),
   manager_id: text("manager_id"),
   leave_ganti_hari: text("leave_ganti_hari"),
@@ -230,42 +236,52 @@ export const work_experiences = sqliteTable("work_experiences", {
 });
 
 
-export const users = sqliteTable('user', {
-  id: text('id').primaryKey(),
-  name: text('name'),
-  email: text('email').notNull(),
-  emailVerified: integer('emailVerified', { mode: 'timestamp_ms' }),
-  image: text('image'),
+export const employee_credentials = sqliteTable("employee_credentials", {
+  employee_id: text("employee_id").primaryKey(),
+  // null = belum pernah diubah, berlaku password default
+  password_hash: text("password_hash"),
+  password_changed_at: text("password_changed_at"),
+  failed_attempts: integer("failed_attempts").notNull().default(0),
+  locked_until: text("locked_until"),
 });
 
-export const accounts = sqliteTable('account', {
-  userId: text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  type: text('type').notNull(),
-  provider: text('provider').notNull(),
-  providerAccountId: text('providerAccountId').notNull(),
-  refresh_token: text('refresh_token'),
-  access_token: text('access_token'),
-  expires_at: integer('expires_at'),
-  token_type: text('token_type'),
-  scope: text('scope'),
-  id_token: text('id_token'),
-  session_state: text('session_state'),
-}, (account) => ({
-  compoundKey: primaryKey({ columns: [account.provider, account.providerAccountId] })
+// Log audit: hanya ditambah (append-only; trigger SQL di migrasi 0010 menolak UPDATE/DELETE).
+// Nama/email pelaku dan target disimpan sebagai salinan karena akunnya bisa dihapus kemudian.
+export const audit_log = sqliteTable("audit_log", {
+  id: text("id").primaryKey(),
+  at: text("at").notNull(), // ISO UTC
+  actor_id: text("actor_id"), // null = sistem / belum login
+  actor_name: text("actor_name"),
+  actor_email: text("actor_email"),
+  action: text("action").notNull(), // lihat lib/audit.ts
+  target_type: text("target_type"),
+  target_id: text("target_id"),
+  target_label: text("target_label"),
+  details: text("details"), // JSON
+  ip: text("ip"),
+}, (t) => ({
+  atIdx: index("audit_log_at_idx").on(t.at),
+  actionIdx: index("audit_log_action_idx").on(t.action, t.at),
+  actorIdx: index("audit_log_actor_idx").on(t.actor_id, t.at),
 }));
 
-export const sessions = sqliteTable('session', {
-  sessionToken: text('sessionToken').primaryKey(),
-  userId: text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  expires: integer('expires', { mode: 'timestamp_ms' }).notNull(),
+// Hari libur: tidak dihitung sebagai hari kerja pada pengajuan cuti. Satu baris per tanggal.
+export const holidays = sqliteTable("holidays", {
+  date: text("date").primaryKey(), // YYYY-MM-DD
+  name: text("name").notNull(),
+  type: text("type").notNull(), // 'NATIONAL' (Libur Nasional) | 'JOINT' (Cuti Bersama)
+  created_at: text("created_at"),
 });
 
-export const verificationTokens = sqliteTable('verificationToken', {
-  identifier: text('identifier').notNull(),
-  token: text('token').notNull(),
-  expires: integer('expires', { mode: 'timestamp_ms' }).notNull(),
-}, (vt) => ({
-  compoundKey: primaryKey({ columns: [vt.identifier, vt.token] })
+// Jatah cuti per karyawan, per jenis, per tahun. Tidak ada baris = pakai nilai default (lihat lib/leave-balance.ts).
+export const leave_quotas = sqliteTable("leave_quotas", {
+  employee_id: text("employee_id").notNull(),
+  leave_type: text("leave_type").notNull(),
+  year: integer("year").notNull(),
+  quota: numeric("quota").notNull(),
+  updated_at: text("updated_at"),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.employee_id, t.leave_type, t.year] }),
 }));
 
 export const leave_requests = sqliteTable("leave_requests", {

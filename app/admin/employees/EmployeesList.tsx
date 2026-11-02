@@ -5,29 +5,10 @@ import { getDb } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { inArray } from 'drizzle-orm'
 
-const ADMIN_MENU = [
-  {
-    label: "Manajemen",
-    items: [
-      { icon: "👥", label: "Karyawan", href: "/admin/employees" },
-      { icon: "📊", label: "Asesmen", href: "/admin/assessments" },
-      { icon: "🏠", label: "Dasbor", href: "/admin/dashboard", isComingSoon: true },
-      { icon: "⏰", label: "Presensi", href: "/admin/attendance", isComingSoon: true },
-      { icon: "📅", label: "Pengajuan Cuti", href: "/admin/leave-requests", isComingSoon: true },
-      { icon: "💰", label: "Payroll", href: "/admin/payroll", isComingSoon: true },
-    ]
-  },
-  {
-    label: "Lainnya",
-    items: [
-      { icon: "📈", label: "Laporan", href: "/admin/reports", isComingSoon: true },
-      { icon: "⚙️", label: "Pengaturan", href: "/admin/settings", isComingSoon: true },
-    ]
-  }
-];
+import { ADMIN_MENU } from "@/lib/navigation";
 
 export default async function AdminEmployeesPage() {
-  const { user, profile } = await requireAdmin();
+  const { user, profile, isSuperAdmin } = await requireAdmin();
   const db = getDb();
 
   const employeesData = await db.select().from(schema.employees);
@@ -117,7 +98,7 @@ export default async function AdminEmployeesPage() {
       userPhoto={profile?.photo_url ?? undefined}
       menuSections={ADMIN_MENU}
     >
-      <AdminDashboard employees={employees as any} />
+      <AdminDashboard employees={employees as any} isSuperAdmin={isSuperAdmin} />
     </DashboardLayout>
   );
 }

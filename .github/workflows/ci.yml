@@ -8,7 +8,7 @@ on:
 
 jobs:
   check:
-    name: Type Check & Lint
+    name: Type Check, Lint & Build
     runs-on: ubuntu-latest
 
     steps:
@@ -16,7 +16,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -27,3 +27,17 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      # Build produksi Cloudflare (OpenNext): menangkap error yang hanya muncul di build produksi,
+      # mis. re-export tipe di file 'use server'. Tidak butuh secret.
+      - name: Build (Cloudflare / OpenNext)
+        run: npx opennextjs-cloudflare build
+
+      - name: Pastikan migrasi Drizzle sinkron dengan skema
+        run: |
+          npx drizzle-kit generate --name ci_drift_check
+          if [ -n "$(git status --porcelain drizzle)" ]; then
+            echo "::error::lib/db/schema.ts berubah tanpa migrasi. Jalankan 'npm run db:generate' dan commit hasilnya."
+            git status --porcelain drizzle
+            exit 1
+          fi

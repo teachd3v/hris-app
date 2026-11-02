@@ -1,6 +1,7 @@
 "use client";
 
 import { getAssessmentAnalysis } from "./actions";
+import { logExport } from "@/app/admin/audit/actions";
 import { useEffect, useState, use } from "react";
 import { notFound, useRouter } from "next/navigation";
 import { getSession } from "next-auth/react";
@@ -10,26 +11,7 @@ import AssessmentCharts from "@/components/admin/AssessmentCharts";
 import { calculateSDTScores, getSDTProfile } from "@/lib/assessment-utils";
 import { loadScript } from "@/lib/utils/scriptLoader";
 
-const ADMIN_MENU = [
-  {
-    label: "Manajemen",
-    items: [
-      { icon: "👥", label: "Karyawan", href: "/admin/employees" },
-      { icon: "📊", label: "Asesmen", href: "/admin/assessments" },
-      { icon: "🏠", label: "Dasbor", href: "/admin/dashboard", isComingSoon: true },
-      { icon: "⏰", label: "Presensi", href: "/admin/attendance", isComingSoon: true },
-      { icon: "📅", label: "Pengajuan Cuti", href: "/admin/leave-requests", isComingSoon: true },
-      { icon: "💰", label: "Payroll", href: "/admin/payroll", isComingSoon: true },
-    ]
-  },
-  {
-    label: "Lainnya",
-    items: [
-      { icon: "📈", label: "Laporan", href: "/admin/reports", isComingSoon: true },
-      { icon: "⚙️", label: "Pengaturan", href: "/admin/settings", isComingSoon: true },
-    ]
-  }
-];
+import { ADMIN_MENU } from "@/lib/navigation";
 
 export default function AssessmentAnalysisPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -102,6 +84,9 @@ export default function AssessmentAnalysisPage({ params }: { params: Promise<{ i
 
   const handleExport = async () => {
     if (assessments.length === 0) return;
+    // Catat ekspor lebih dulu; bila gagal dicatat, ekspor dibatalkan
+    const logged = await logExport('assessment-recap-xlsx', { rows: assessments.length, label: `Rekap asesmen: ${template?.title ?? ''}` }).catch(() => ({ error: 'gagal' }));
+    if (logged.error) { alert('Ekspor dibatalkan: gagal mencatat ke log audit.'); return; }
     await loadScript("https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js");
     const XLSX = (window as any).XLSX;
 

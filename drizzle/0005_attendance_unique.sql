@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `attendances_employee_date_unique` ON `attendances` (`employee_id`,`date`);

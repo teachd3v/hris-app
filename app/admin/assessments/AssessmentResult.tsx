@@ -1,6 +1,7 @@
 "use client";
 
 import { getAssessmentResult } from "./actions";
+import { logExport } from "@/app/admin/audit/actions";
 import { useEffect, useState, use } from "react";
 import { notFound, useRouter } from "next/navigation";
 import { getSession } from "next-auth/react";
@@ -11,26 +12,7 @@ import AssessmentReportTemplate from "@/components/admin/AssessmentReportTemplat
 import { calculateSDTScores, getSDTProfile, getScoreGradation } from "@/lib/assessment-utils";
 import { loadScript } from "@/lib/utils/scriptLoader";
 
-const ADMIN_MENU = [
-  {
-    label: "Manajemen",
-    items: [
-      { icon: "👥", label: "Karyawan", href: "/admin/employees" },
-      { icon: "📊", label: "Asesmen", href: "/admin/assessments" },
-      { icon: "🏠", label: "Dasbor", href: "/admin/dashboard", isComingSoon: true },
-      { icon: "⏰", label: "Presensi", href: "/admin/attendance", isComingSoon: true },
-      { icon: "📅", label: "Pengajuan Cuti", href: "/admin/leave-requests", isComingSoon: true },
-      { icon: "💰", label: "Payroll", href: "/admin/payroll", isComingSoon: true },
-    ]
-  },
-  {
-    label: "Lainnya",
-    items: [
-      { icon: "📈", label: "Laporan", href: "/admin/reports", isComingSoon: true },
-      { icon: "⚙️", label: "Pengaturan", href: "/admin/settings", isComingSoon: true },
-    ]
-  }
-];
+import { ADMIN_MENU } from "@/lib/navigation";
 
 export default function IndividualAssessmentPage({ params }: { params: Promise<{ id: string, resultId: string }> }) {
   const { id, resultId } = use(params);
@@ -47,8 +29,11 @@ export default function IndividualAssessmentPage({ params }: { params: Promise<{
     const element = document.getElementById("pdf-report-template");
     if (!element) return;
 
-    try {
+ try {
       setIsGeneratingPDF(true);
+      // Catat ekspor lebih dulu; bila gagal dicatat, ekspor dibatalkan
+      const logged = await logExport('assessment-report-pdf', { rows: 1, label: `Laporan asesmen: ${assessment?.employees?.name ?? ''}` }).catch(() => ({ error: 'gagal' }));
+      if (logged.error) { alert('Ekspor dibatalkan: gagal mencatat ke log audit.'); setIsGeneratingPDF(false); return; }
       
       // Tunggu sampai semua font (Plus Jakarta Sans) siap di browser
       await document.fonts.ready;

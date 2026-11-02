@@ -19,26 +19,7 @@ import {
 import DashboardLayout from "@/components/common/DashboardLayout";
 import { getEmployeeAssessments, getEmployeeBasicProfile, type EmployeeAssessment } from "./actions";
 
-const EMPLOYEE_MENU = [
-  {
-    label: "Utama",
-    items: [
-      { icon: "👤", label: "Profil Saya", href: "/employee/dashboard" },
-      { icon: "📄", label: "Dokumen", href: "/employee/documents" },
-      { icon: "📋", label: "Asesmen", href: "/employee/assessments" },
-    ],
-  },
-  {
-    label: "Lainnya",
-    items: [
-      { icon: "🏠", label: "Beranda", href: "/employee/beranda", isComingSoon: true },
-      { icon: "⏰", label: "Presensi", href: "/employee/presensi", isComingSoon: true },
-      { icon: "📅", label: "Cuti", href: "/employee/cuti" },
-      { icon: "💰", label: "Payroll", href: "/employee/payroll", isComingSoon: true },
-      { icon: "⚙️", label: "Pengaturan", href: "/employee/settings", isComingSoon: true },
-    ],
-  },
-];
+import { EMPLOYEE_MENU } from "@/lib/navigation";
 
 const TABS = [
   { key: "Semua", label: "Semua", icon: ListTodo },
@@ -90,6 +71,8 @@ export default function AssessmentsPage() {
       userInitials={userProfile.initials}
       userPhoto={userProfile.photo}
       menuSections={EMPLOYEE_MENU}
+      hideBottomNav={true}
+      showMobileHome={true}
     >
       <div className="page-head flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
