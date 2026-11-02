@@ -23,6 +23,14 @@ Berjalan penuh di ekosistem **Cloudflare** — produksi: <https://hrteach.site>.
 - **Admin / HC** — setiap admin adalah HC: persetujuan akhir cuti, jatah cuti, atasan, tambah/reset/hapus karyawan. Admin = `employees.role = 'Admin'` **atau** email ada di `lib/admins.ts`.
 - **Super admin** — `hudagraph@gmail.com` (lihat `lib/admins.ts`). Satu-satunya yang boleh memberi/mencabut peran admin serta mengubah, mereset, dan menghapus akun admin lain. Akun super admin tidak dapat diubah siapa pun dari panel.
 
+## Kebijakan yang belum ditetapkan
+
+Dicatat agar tidak terlupa; belum ada ketentuan resmi dari lembaga.
+
+- **Cuti bersama.** Saat ini diperlakukan **sama dengan libur nasional**: tanggalnya tidak dihitung sebagai hari kerja dan **tidak memotong jatah Cuti Tahunan**. Belum ada informasi resmi apakah lembaga akan memotong cuti tahunan untuk cuti bersama. Jika kelak diputuskan memotong, jenis `JOINT` di tabel `holidays` perlu mengurangi kuota Cuti Tahunan semua karyawan (bukan lewat pengajuan), dan perubahannya berlaku untuk tahun berjalan saja. Sampai ada keputusan, perilaku di atas tidak diubah.
+- **Geofence presensi di server.** Default mati selama masa uji coba (`ATTENDANCE_ENFORCE_GEOFENCE`); pembatasan lokasi saat ini hanya di sisi klien.
+- **Jam masuk / keterlambatan.** Belum didefinisikan, sehingga presensi tidak membedakan terlambat.
+
 ## Log audit
 
 Tindakan sensitif dicatat di tabel `audit_log` (siapa, apa, target, detail, IP, waktu): tambah/hapus akun, reset password, ubah peran/status akun, ubah atasan, keputusan cuti (atasan & HC), ubah kuota, hari libur, akun terkunci karena salah password, pembukaan dokumen pribadi/lampiran cuti oleh selain pemiliknya, dan ekspor data. Pencatatan berada dalam transaksi yang sama dengan aksinya. Tabel **append-only** (trigger SQL menolak UPDATE/DELETE) dan **hanya super admin** yang dapat membacanya di menu *Log Audit*.

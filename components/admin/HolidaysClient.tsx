@@ -98,7 +98,7 @@ export default function HolidaysClient() {
         <div>
           <span className="eyebrow">Manajemen Cuti</span>
           <h1>Hari Libur</h1>
-          <p>Libur nasional dan cuti bersama tidak dihitung sebagai hari kerja pada pengajuan cuti (berlaku untuk pengajuan baru).</p>
+          <p>Libur nasional dan cuti bersama tidak dihitung sebagai hari kerja pada pengajuan cuti (berlaku untuk pengajuan baru). Cuti bersama saat ini tidak memotong cuti tahunan, menunggu ketentuan resmi lembaga.</p>
         </div>
         <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="h-10 px-3 rounded-xl border border-line-2 bg-white text-sm font-bold text-ink">
           {[thisYear - 1, thisYear, thisYear + 1, thisYear + 2].map((y) => <option key={y} value={y}>Tahun {y}</option>)}

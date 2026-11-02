@@ -45,6 +45,9 @@ export function parseIsoDate(s: string): Date | null {
 
 export type HolidayDates = ReadonlySet<string>;
 
+// Catatan kebijakan: JOINT (Cuti Bersama) saat ini diperlakukan sama dengan NATIONAL, yaitu tidak dihitung
+// sebagai hari kerja dan TIDAK memotong Cuti Tahunan. Belum ada ketentuan resmi lembaga; lihat README
+// ("Kebijakan yang belum ditetapkan") sebelum mengubahnya.
 export const HOLIDAY_TYPES = [
   { key: 'NATIONAL', label: 'Libur Nasional' },
   { key: 'JOINT', label: 'Cuti Bersama' },
