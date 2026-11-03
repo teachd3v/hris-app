@@ -486,11 +486,10 @@ export default function AttendancePage() {
           {/* Top Section */}
           <div>
             {/* Header Title */}
-            <div className="flex justify-between items-center w-full mb-6 mt-2">
+            <div className="flex justify-between items-center w-full mb-3">
               <div>
-                <h1 className="text-2xl font-bold tracking-tight text-white drop-shadow-md">Presensi Harian</h1>
                 {!isLoading && !hasClockedOut && !justClockedIn && (
-                  <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-[11px] font-black uppercase tracking-wider">
+                  <span className="inline-block px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-[11px] font-black uppercase tracking-wider">
                     {hasClockedIn ? 'Clock Out' : 'Clock In'}
                   </span>
                 )}
@@ -504,34 +503,37 @@ export default function AttendancePage() {
             </div>
 
             {/* Employee Info Block */}
-            <div className="flex items-center gap-3 w-full bg-black/40 backdrop-blur-md p-3.5 rounded-[16px] shadow-lg border border-white/20">
-               <div className="w-12 h-12 rounded-full bg-white/10 overflow-hidden shrink-0 flex items-center justify-center font-bold text-lg text-white shadow-inner">
-                  {employee?.photo_url ? (
-                     <img src={employee.photo_url} alt="Profile" className="w-full h-full object-cover" />
-                  ) : (
-                     employee?.name?.charAt(0).toUpperCase() || '?'
-                  )}
+            <div className="flex items-center justify-between gap-3 w-full bg-black/40 backdrop-blur-md px-3 py-2 rounded-[14px] shadow-lg border border-white/20">
+               {/* Kiri: profil */}
+               <div className="flex items-center gap-2 min-w-0 flex-1">
+                 <div className="w-8 h-8 rounded-full bg-white/10 overflow-hidden shrink-0 flex items-center justify-center font-bold text-[13px] text-white shadow-inner">
+                    {employee?.photo_url ? (
+                       <img src={employee.photo_url} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                       employee?.name?.charAt(0).toUpperCase() || '?'
+                    )}
+                 </div>
+                 <div className="min-w-0">
+                    <p className="font-bold text-[12px] leading-tight text-white truncate">{employee?.name || 'Memuat data...'}</p>
+                    <p className="text-[10px] leading-tight text-white/70 truncate mt-0.5">{employee?.title || 'Karyawan'} • {employee?.dept || '-'}</p>
+                 </div>
                </div>
-               <div className="flex-1 min-w-0">
-                  <p className="font-bold text-[15px] text-white truncate">{employee?.name || 'Memuat data...'}</p>
-                  <p className="text-[12px] text-white/70 truncate mt-0.5">{employee?.title || 'Karyawan'} • {employee?.dept || '-'}</p>
-               </div>
+               {/* Kanan: tanggal dan jam presensi (hanya saat belum selesai presensi) */}
+               {!hasClockedOut && !justClockedIn && !isLoading && (
+                 <div className="text-right shrink-0 border-l border-white/20 pl-3">
+                   <p className="text-[9px] leading-tight font-bold uppercase tracking-wide text-white/70">
+                     {isMounted ? currentTime.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'Memuat...'}
+                   </p>
+                   <p className="text-[17px] leading-tight font-black tracking-tight text-white tabular-nums mt-0.5">
+                     {isMounted ? currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '00.00.00'}
+                   </p>
+                 </div>
+               )}
             </div>
           </div>
 
           {/* Center Section (Time & Status) */}
           <div className="flex flex-col items-center justify-center flex-1 my-6 relative">
-            {!hasClockedOut && !justClockedIn && !isLoading && (
-              <div className="text-center animate-in fade-in zoom-in-95 duration-500">
-                <p className="text-white/80 font-bold mb-1 drop-shadow-md uppercase tracking-widest text-[11px]">
-                  {isMounted ? currentTime.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Memuat Tanggal...'}
-                </p>
-                <div className="text-[56px] font-black tracking-tighter text-white drop-shadow-2xl leading-none">
-                  {isMounted ? currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '00.00.00'}
-                </div>
-              </div>
-            )}
-
         {/* Camera Viewfinder / Summary Dashboard */}
         {isLoading ? (
           <div className="w-full h-[420px] rounded-[var(--radius-hris-xl)] flex flex-col justify-center items-center bg-white/50 border border-[var(--glass-border)] animate-pulse mb-6">
