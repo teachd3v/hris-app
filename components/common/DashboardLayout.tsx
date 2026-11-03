@@ -42,7 +42,11 @@ export default function DashboardLayout({
 }: DashboardLayoutProps) {
   // Halaman admin selain /admin/m (versi HP) dirancang untuk desktop: di layar sempit tampilkan pesan
   const pathname = usePathname();
-  const desktopOnly = role === "Admin" && !pathname.startsWith("/admin/m");
+  // Halaman karyawan Dokumen & Asesmen juga khusus desktop.
+  const desktopOnly =
+    (role === "Admin" && !pathname.startsWith("/admin/m")) ||
+    (role === "Karyawan" &&
+      (pathname.startsWith("/employee/documents") || pathname.startsWith("/employee/assessments")));
 
   // Menu khusus super admin (Log Audit): flag dihitung di server (session.user.isSuperAdmin)
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -111,8 +115,8 @@ export default function DashboardLayout({
               <div className="md:hidden bg-white rounded-[24px] border border-[var(--line)] p-6 text-center flex flex-col items-center gap-3" data-testid="desktop-only-notice">
                 <div className="text-4xl">🖥️</div>
                 <h2 className="text-[16px] font-black text-ink">Halaman ini khusus desktop</h2>
-                <p className="text-[12px] text-ink-3 leading-relaxed">Fitur ini membutuhkan layar lebih lebar. Buka dari komputer, atau gunakan Menu Admin untuk aksi cepat dari HP.</p>
-                <Link href="/admin/m" className="w-full h-12 rounded-full bg-[var(--red)] text-white font-bold text-[14px] flex items-center justify-center">Buka Menu Admin</Link>
+                <p className="text-[12px] text-ink-3 leading-relaxed">Fitur ini membutuhkan layar lebih lebar. {role === "Admin" ? "Buka dari komputer, atau gunakan Menu Admin untuk aksi cepat dari HP." : "Silakan buka dari komputer."}</p>
+                {role === "Admin" && <Link href="/admin/m" className="w-full h-12 rounded-full bg-[var(--red)] text-white font-bold text-[14px] flex items-center justify-center">Buka Menu Admin</Link>}
                 <Link href="/employee/dashboard" className="text-[12px] font-bold text-ink-2 underline">Kembali ke beranda</Link>
               </div>
             </>
