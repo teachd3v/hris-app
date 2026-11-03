@@ -2,13 +2,17 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchAttendanceData, submitAttendance } from './actions';
-import { MapPin, Camera, Clock, CheckCircle, AlertCircle, Loader2, Navigation2, Smartphone, Lock, ShieldAlert } from 'lucide-react';
+import { Camera, Clock, CheckCircle, AlertCircle, Loader2, Navigation2, Smartphone, Lock, ShieldAlert } from 'lucide-react';
 import { getDistanceFromLatLonInKm, OFFICE_LAT, OFFICE_LNG, MAX_RADIUS_KM } from '@/lib/geo';
+import { loadFaceDetector, mapBoxToView, isFaceReady, type ViewBox } from '@/lib/face-detector';
+import type { FaceDetector } from '@mediapipe/tasks-vision';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 import DashboardLayout from '@/components/common/DashboardLayout';
 import { EMPLOYEE_MENU } from '@/lib/navigation';
+
+const CAPTURE_DELAY_MS = 3000;
 
 export default function AttendancePage() {
   const router = useRouter();
@@ -32,6 +36,15 @@ export default function AttendancePage() {
   const [countdown, setCountdown] = useState(5);
   const [justClockedIn, setJustClockedIn] = useState(false);
   const [cameraError, setCameraError] = useState<string>('');
+
+  // Alur: detecting (cari wajah) -> countdown 3 detik -> review (konfirmasi foto) -> kirim
+  const [phase, setPhase] = useState<'detecting' | 'review'>('detecting');
+  const [detectorState, setDetectorState] = useState<'loading' | 'ready' | 'unsupported'>('loading');
+  const [faceBox, setFaceBox] = useState<ViewBox | null>(null);
+  const [captureIn, setCaptureIn] = useState<number | null>(null);
+  const [captured, setCaptured] = useState<{ blob: Blob; url: string } | null>(null);
+  const detectorRef = useRef<FaceDetector | null>(null);
+  const readySinceRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (successModal?.isOpen) {
@@ -107,8 +120,14 @@ export default function AttendancePage() {
       
       let stream: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'user' } 
+        // Minta rasio sesuai layar agar gambar tidak terpotong/terlihat ter-zoom di HP (potret)
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user',
+            width: { ideal: 1280 },
+            height: { ideal: 1280 },
+            aspectRatio: { ideal: window.innerWidth / window.innerHeight },
+          },
         });
       } catch (firstErr) {
         console.warn("Failed with facingMode constraint, retrying with generic video constraint...", firstErr);
@@ -148,12 +167,13 @@ export default function AttendancePage() {
       videoRef.current.srcObject = null;
     }
     setStreamActive(false);
+    setFaceBox(null);
   };
 
   useEffect(() => {
     if (isMounted && attendanceToday !== undefined) {
       const clockedOut = attendanceToday?.clock_out != null;
-      if (!clockedOut && !justClockedIn && !isSubmitting) {
+      if (!clockedOut && !justClockedIn) {
         startCamera();
       } else {
         stopCamera();
@@ -165,7 +185,27 @@ export default function AttendancePage() {
         activeStreamRef.current = null;
       }
     };
-  }, [isMounted, attendanceToday, justClockedIn, isSubmitting]);
+  }, [isMounted, attendanceToday, justClockedIn]);
+
+  // Muat model deteksi wajah sekali. Bila gagal (jaringan/perangkat), tombol "Ambil Foto" manual jadi cadangan.
+  useEffect(() => {
+    let cancelled = false;
+    loadFaceDetector()
+      .then((d) => {
+        if (cancelled) return d.close();
+        detectorRef.current = d;
+        setDetectorState('ready');
+      })
+      .catch((e) => {
+        console.error('Face detector gagal dimuat', e);
+        if (!cancelled) setDetectorState('unsupported');
+      });
+    return () => {
+      cancelled = true;
+      detectorRef.current?.close();
+      detectorRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if ('geolocation' in navigator) {
@@ -208,12 +248,84 @@ export default function AttendancePage() {
     }); 
   };
 
+  const capturePhoto = useCallback(async () => {
+    const blob = await takePhoto();
+    if (!blob) {
+      alert('Gagal mengambil foto, silakan coba lagi.');
+      return;
+    }
+    readySinceRef.current = null;
+    setCaptureIn(null);
+    setFaceBox(null);
+    setCaptured({ blob, url: URL.createObjectURL(blob) });
+    setPhase('review');
+  }, []);
+
+  const retakePhoto = () => {
+    if (captured) URL.revokeObjectURL(captured.url);
+    setCaptured(null);
+    readySinceRef.current = null;
+    setPhase('detecting');
+  };
+
+  // Loop deteksi: gambar kotak kuning pada wajah, lalu hitung mundur 3 detik selama wajah siap, lalu ambil foto otomatis
+  useEffect(() => {
+    const active = phase === 'detecting' && streamActive && detectorState === 'ready';
+    if (!active) return;
+    readySinceRef.current = null;
+    let raf = 0;
+    let lastTick = 0;
+    let lastVideoTime = -1;
+    const loop = (now: number) => {
+      raf = requestAnimationFrame(loop);
+      if (now - lastTick < 100) return; // ~10 kali per detik
+      lastTick = now;
+      const video = videoRef.current;
+      const detector = detectorRef.current;
+      if (!video || !detector || video.readyState < 2 || !video.videoWidth || video.currentTime === lastVideoTime) return;
+      lastVideoTime = video.currentTime;
+
+      const faces = detector.detectForVideo(video, performance.now()).detections;
+      // Pakai wajah terbesar (yang paling dekat kamera)
+      const best = faces
+        .map((d) => d.boundingBox)
+        .filter((b): b is NonNullable<typeof b> => Boolean(b))
+        .sort((a, b) => b.width * b.height - a.width * a.height)[0];
+
+      if (!best) {
+        setFaceBox(null);
+        setCaptureIn(null);
+        readySinceRef.current = null;
+        return;
+      }
+      setFaceBox(mapBoxToView(best, video.videoWidth, video.videoHeight, video.clientWidth, video.clientHeight));
+      const ready = isFaceReady(best, video.videoWidth, video.videoHeight);
+      if (!ready) {
+        setCaptureIn(null);
+        readySinceRef.current = null;
+        return;
+      }
+      if (readySinceRef.current == null) readySinceRef.current = now;
+      const elapsed = now - readySinceRef.current;
+      if (elapsed >= CAPTURE_DELAY_MS) {
+        cancelAnimationFrame(raf);
+        capturePhoto();
+        return;
+      }
+      setCaptureIn(Math.ceil((CAPTURE_DELAY_MS - elapsed) / 1000));
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [phase, streamActive, detectorState, capturePhoto]);
+
+  // Bersihkan URL foto bila halaman ditutup
+  useEffect(() => () => { if (captured) URL.revokeObjectURL(captured.url); }, [captured]);
+
   const handleAttendance = async (type: 'in' | 'out') => {
-    if (!employee) return;
+    if (!employee || !captured) return;
     setIsSubmitting(true);
     try {
-      const blob: any = await takePhoto();
-      if (!blob) throw new Error("Gagal mengambil foto");
+      const blob = captured.blob;
 
       const formData = new FormData();
       formData.append('file', blob);
@@ -226,6 +338,8 @@ export default function AttendancePage() {
       if (type === 'in') {
         setJustClockedIn(true);
       }
+      setCaptured(null);
+      setPhase('detecting');
       
       const now = new Date().toISOString();
 
@@ -355,6 +469,15 @@ export default function AttendancePage() {
           
           {/* Dark gradient overlay so text is readable over camera */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/80 pointer-events-none" />
+
+          {/* Kotak kuning mengikuti wajah secara real-time */}
+          {faceBox && phase === 'detecting' && (
+            <div
+              data-testid="face-box"
+              className="absolute pointer-events-none rounded-xl border-[3px] border-yellow-400 shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
+              style={{ left: faceBox.x, top: faceBox.y, width: faceBox.w, height: faceBox.h }}
+            />
+          )}
         </div>
 
         {/* UI Overlay */}
@@ -364,7 +487,14 @@ export default function AttendancePage() {
           <div>
             {/* Header Title */}
             <div className="flex justify-between items-center w-full mb-6 mt-2">
-              <h1 className="text-2xl font-bold tracking-tight text-white drop-shadow-md">Presensi Harian</h1>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-white drop-shadow-md">Presensi Harian</h1>
+                {!isLoading && !hasClockedOut && !justClockedIn && (
+                  <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-[11px] font-black uppercase tracking-wider">
+                    {hasClockedIn ? 'Clock Out' : 'Clock In'}
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
               <Link href="/employee/attendance/history" aria-label="Riwayat presensi" className="h-8 px-3 flex justify-center items-center gap-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 shadow-sm text-white text-[11px] font-bold"><Clock size={12} /> Riwayat</Link>
               <button onClick={() => router.back()} className="w-8 h-8 flex justify-center items-center rounded-full bg-white/20 backdrop-blur-md border border-white/30 shadow-sm hover:bg-white/30 transition-colors">
@@ -485,29 +615,30 @@ export default function AttendancePage() {
         ) : justClockedIn ? (
           /* Premium Clock In Summary Dashboard */
           <div className="w-full bg-white/90 backdrop-blur-md p-6 rounded-[28px] shadow-[0_12px_30px_rgba(0,0,0,0.04)] border border-[var(--glass-border)] mb-6 flex flex-col gap-6 text-center animate-in fade-in zoom-in-95 duration-500">
-            <div>
-              <div className="w-16 h-16 bg-[var(--green-soft)] rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner border border-[var(--green)]/20">
-                <CheckCircle size={32} className="text-[var(--green)]" />
+            <div className="flex items-center justify-center gap-3">
+              <div className="w-10 h-10 shrink-0 bg-[var(--green-soft)] rounded-full flex items-center justify-center shadow-inner border border-[var(--green)]/20">
+                <CheckCircle size={22} className="text-[var(--green)]" />
               </div>
-              <h3 className="text-xl font-extrabold text-[var(--ink)]">Clock In Berhasil!</h3>
-              <p className="text-[13px] text-[var(--ink-3)] mt-1">Sesi masuk Anda hari ini telah dicatat. Selamat bekerja!</p>
+              <h3 className="text-xl font-extrabold text-[var(--ink)]">Clock In Berhasil</h3>
             </div>
 
             {/* Clock In Info Card */}
-            <div className="p-5 bg-gradient-to-br from-[var(--bg)] to-white rounded-2xl border border-[var(--line)] shadow-sm flex flex-col items-center w-full">
-              <span className="text-[11px] font-bold tracking-widest text-[var(--green)] uppercase">WAKTU MASUK</span>
-              <span className="text-[36px] font-black text-[var(--ink)] mt-1 tracking-tight">
-                {formatTimeStr(attendanceToday?.clock_in)}
-              </span>
+            <div className="p-4 bg-gradient-to-br from-[var(--bg)] to-white rounded-2xl border border-[var(--line)] shadow-sm flex flex-col items-center w-full">
+              <div className="flex items-baseline justify-center gap-3">
+                <span className="text-[11px] font-bold tracking-widest text-[var(--green)] uppercase">Waktu Masuk</span>
+                <span className="text-[32px] leading-none font-black text-[var(--ink)] tracking-tight">
+                  {formatTimeStr(attendanceToday?.clock_in)}
+                </span>
+              </div>
               
               {attendanceToday?.clock_in_photo_url && (
-                <div className="w-full aspect-[4/3] rounded-xl overflow-hidden mt-4 border border-black/5 shadow-sm">
+                <div className="w-full aspect-[4/3] rounded-xl overflow-hidden mt-3 border border-black/5 shadow-sm">
                   <img src={attendanceToday.clock_in_photo_url} alt="Selfie In" className="w-full h-full object-cover" />
                 </div>
               )}
               
               <span className="text-[11px] text-[var(--green)] font-semibold mt-3 flex items-center gap-1">
-                <CheckCircle size={12} className="text-[var(--green)]" /> Terverifikasi (Mode Uji Coba)
+                <CheckCircle size={12} className="text-[var(--green)]" /> Terverifikasi
               </span>
             </div>
 
@@ -587,32 +718,72 @@ export default function AttendancePage() {
                    </div>
                  </div>
 
-                 {/* Action Button */}
-                 <button
-                   disabled={isSubmitting}
-                   onClick={() => handleAttendance(hasClockedIn ? 'out' : 'in')}
-                   className={`
-                     w-full h-14 rounded-full font-bold text-[16px] transition-all duration-300 transform active:scale-95 shadow-xl flex justify-center items-center gap-2
-                     ${isSubmitting
-                       ? 'bg-white/20 text-white/50 cursor-wait border border-white/10 backdrop-blur-md'
-                       : 'bg-[var(--red)] text-white hover:bg-red-700'
-                     }
-                   `}
-                 >
-                   {isSubmitting ? (
-                     <Loader2 className="animate-spin text-white" />
-                   ) : hasClockedIn ? (
-                     <>Clock Out Sekarang <Clock size={20} strokeWidth={2.5} /></>
-                   ) : (
-                     <>Clock In Sekarang <MapPin size={20} strokeWidth={2.5} /></>
-                   )}
-                 </button>
+                 {/* Tombol status dinamis: foto diambil otomatis saat wajah terdeteksi */}
+                 {detectorState === 'unsupported' ? (
+                   <button
+                     disabled={!streamActive}
+                     onClick={capturePhoto}
+                     className="w-full h-14 rounded-full font-bold text-[16px] transition-all duration-300 active:scale-95 shadow-xl flex justify-center items-center gap-2 bg-[var(--red)] text-white hover:bg-red-700 disabled:opacity-50"
+                   >
+                     Ambil Foto <Camera size={20} strokeWidth={2.5} />
+                   </button>
+                 ) : (
+                   <button
+                     disabled
+                     data-testid="detect-status"
+                     className={`w-full h-14 rounded-full font-bold text-[16px] shadow-xl flex justify-center items-center gap-2 border backdrop-blur-md ${
+                       captureIn != null ? 'bg-[var(--green)] text-white border-white/20' : 'bg-white/20 text-white border-white/10'
+                     }`}
+                   >
+                     {captureIn != null ? (
+                       <>Tahan posisi… {captureIn}</>
+                     ) : detectorState === 'loading' ? (
+                       <><Loader2 className="animate-spin" size={20} /> Menyiapkan deteksi wajah...</>
+                     ) : faceBox ? (
+                       <>Posisikan wajah di tengah layar</>
+                     ) : (
+                       <><Loader2 className="animate-spin" size={20} /> Mendeteksi wajah...</>
+                     )}
+                   </button>
+                 )}
                </>
              )}
           </div>
         </div>
 
       </div>
+
+      {/* Layar konfirmasi foto (HP): Ulangi atau Setujui */}
+      {captured && phase === 'review' && (
+        <div data-testid="review-screen" className="md:hidden fixed inset-0 z-[60] bg-black flex flex-col">
+          <img src={captured.url} alt="Hasil foto presensi" className="absolute inset-0 w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/80 pointer-events-none" />
+          <div className="relative z-10 flex flex-col justify-between h-full p-6">
+            <div className="mt-2">
+              <h2 className="text-2xl font-bold tracking-tight text-white drop-shadow-md">Konfirmasi Foto</h2>
+              <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-[11px] font-black uppercase tracking-wider">
+                {hasClockedIn ? 'Clock Out' : 'Clock In'}
+              </span>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button
+                disabled={isSubmitting}
+                onClick={() => handleAttendance(hasClockedIn ? 'out' : 'in')}
+                className="w-full h-14 rounded-full font-bold text-[16px] shadow-xl flex justify-center items-center gap-2 bg-[var(--red)] text-white active:scale-95 transition-transform disabled:opacity-60 disabled:cursor-wait"
+              >
+                {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <>Lanjut / Setujui Presensi <CheckCircle size={20} strokeWidth={2.5} /></>}
+              </button>
+              <button
+                disabled={isSubmitting}
+                onClick={retakePhoto}
+                className="w-full h-12 rounded-full font-bold text-[14px] bg-white/20 backdrop-blur-md border border-white/30 text-white active:scale-95 transition-transform disabled:opacity-50"
+              >
+                Ulangi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Success Modal */}
       {successModal?.isOpen && (
