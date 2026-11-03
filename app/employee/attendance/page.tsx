@@ -454,7 +454,7 @@ export default function AttendancePage() {
       </div>
 
       {/* MOBILE CONTAINER (Visible only on Mobile screens < md) */}
-      <div className="w-full min-h-screen md:hidden relative flex flex-col pb-24">
+      <div className="w-full min-h-screen md:hidden relative flex flex-col pb-6">
         
         {/* Fullscreen Video Background */}
         <div className="absolute inset-0 w-full h-full overflow-hidden bg-black z-0">
@@ -686,27 +686,29 @@ export default function AttendancePage() {
       </div>
 
           {/* Bottom Section (Location & Button) */}
-          <div className="flex flex-col gap-4 mt-auto">
+          <div className="mt-auto">
              {!hasClockedOut && !justClockedIn && (
-               <>
-                 {/* Location Overlay */}
-                 <div className="bg-black/50 backdrop-blur-md p-3.5 rounded-[16px] text-[13px] flex items-center gap-3 border border-white/20 shadow-lg animate-in slide-in-from-bottom-8">
+               /* Satu grup menempel di dasar layar: info lokasi + status deteksi wajah */
+               <div className="fixed bottom-0 inset-x-0 z-20 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+               <div className="flex flex-col gap-2 bg-black/60 backdrop-blur-md p-2.5 rounded-[20px] border border-white/20 shadow-[0_-8px_30px_rgba(0,0,0,0.35)]">
+                 {/* Info lokasi */}
+                 <div className="px-1.5 pt-0.5 text-[12px] flex items-center gap-2.5">
                    {locationError ? (
-                     <AlertCircle className="text-[var(--red)] shrink-0" size={24} />
+                     <AlertCircle className="text-[var(--red)] shrink-0" size={20} />
                    ) : isLocationValid ? (
-                     <CheckCircle className="text-[var(--green)] shrink-0" size={24} />
+                     <CheckCircle className="text-[var(--green)] shrink-0" size={20} />
                    ) : (
-                     <Navigation2 className="text-[var(--yellow)] shrink-0" size={24} />
+                     <Navigation2 className="text-[var(--yellow)] shrink-0" size={20} />
                    )}
                    
                    <div className="flex-1 min-w-0">
-                     <p className="font-semibold truncate text-white flex items-center gap-1.5">
+                     <p className="font-semibold text-[12px] leading-tight truncate text-white flex items-center gap-1.5">
                        {locationError ? 'Gagal mendapatkan lokasi' : 'Lokasi Terdeteksi'}
-                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[var(--yellow)] text-black uppercase shrink-0">
+                       <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-[var(--yellow)] text-black uppercase shrink-0">
                          Uji Coba
                        </span>
                      </p>
-                     <p className={`truncate text-[12px] mt-0.5 font-medium ${isLocationValid ? 'text-[var(--green)]' : 'text-white/70'}`}>
+                     <p className={`truncate text-[11px] leading-tight mt-0.5 font-medium ${isLocationValid ? 'text-[var(--green)]' : 'text-white/70'}`}>
                        {locationError ? (
                          'GPS tidak aktif/error • Tetap bisa absen'
                        ) : distance === null ? (
@@ -725,30 +727,31 @@ export default function AttendancePage() {
                    <button
                      disabled={!streamActive}
                      onClick={capturePhoto}
-                     className="w-full h-14 rounded-full font-bold text-[16px] transition-all duration-300 active:scale-95 shadow-xl flex justify-center items-center gap-2 bg-[var(--red)] text-white hover:bg-red-700 disabled:opacity-50"
+                     className="w-full h-12 rounded-full font-bold text-[14px] transition-all duration-300 active:scale-95 flex justify-center items-center gap-2 bg-[var(--red)] text-white hover:bg-red-700 disabled:opacity-50"
                    >
-                     Ambil Foto <Camera size={20} strokeWidth={2.5} />
+                     Ambil Foto <Camera size={18} strokeWidth={2.5} />
                    </button>
                  ) : (
                    <button
                      disabled
                      data-testid="detect-status"
-                     className={`w-full h-14 rounded-full font-bold text-[16px] shadow-xl flex justify-center items-center gap-2 border backdrop-blur-md ${
+                     className={`w-full h-12 rounded-full font-bold text-[14px] flex justify-center items-center gap-2 border ${
                        captureIn != null ? 'bg-[var(--green)] text-white border-white/20' : 'bg-white/20 text-white border-white/10'
                      }`}
                    >
                      {captureIn != null ? (
                        <>Tahan posisi… {captureIn}</>
                      ) : detectorState === 'loading' ? (
-                       <><Loader2 className="animate-spin" size={20} /> Menyiapkan deteksi wajah...</>
+                       <><Loader2 className="animate-spin" size={16} /> Menyiapkan deteksi wajah...</>
                      ) : faceBox ? (
                        <>Posisikan wajah di tengah layar</>
                      ) : (
-                       <><Loader2 className="animate-spin" size={20} /> Mendeteksi wajah...</>
+                       <><Loader2 className="animate-spin" size={16} /> Mendeteksi wajah...</>
                      )}
                    </button>
                  )}
-               </>
+               </div>
+               </div>
              )}
           </div>
         </div>
