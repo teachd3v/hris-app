@@ -16,6 +16,7 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^1.2.0",
     "@types/canvas-confetti": "^1.9.0",
     "canvas-confetti": "^1.9.4",
     "drizzle-orm": "^0.45.2",
