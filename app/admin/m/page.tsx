@@ -23,7 +23,7 @@ export default async function Page() {
     // Pengaturan cuti dari HP: khusus super admin (admin lain memakai desktop)
     ...(isSuperAdmin ? [
       { href: "/admin/m/kuota", icon: "🗓️", title: "Kuota Cuti", desc: "Atur jatah cuti per karyawan", badge: null },
-      { href: "/admin/m/libur", icon: "🎌", title: "Hari Libur", desc: "Libur nasional dan cuti bersama", badge: null },
+      { href: "/admin/m/libur", icon: "🇮🇩", title: "Hari Libur", desc: "Libur nasional dan cuti bersama", badge: null },
     ] : []),
   ];
 
