@@ -3,20 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { deleteHoliday, listHolidays, saveHolidays, type HolidayRow } from "@/app/admin/holidays/actions";
-import { HOLIDAY_TYPES, parseIsoDate } from "@/lib/leave";
+import { HOLIDAY_TYPES, expandDateRange, parseIsoDate } from "@/lib/leave";
 
 const typeLabel = (t: string) => HOLIDAY_TYPES.find((x) => x.key === t)?.label ?? t;
 const fmt = (d: string) => new Date(d + "T00:00:00Z").toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
-
-/** Semua tanggal dari start sampai end (inklusif), maks. 60 hari. */
-function expandRange(start: string, end: string): string[] | null {
-  const s = parseIsoDate(start);
-  const e = parseIsoDate(end || start);
-  if (!s || !e || e < s) return null;
-  const out: string[] = [];
-  for (const d = new Date(s); d <= e; d.setUTCDate(d.getUTCDate() + 1)) out.push(d.toISOString().slice(0, 10));
-  return out.length > 60 ? null : out;
-}
 
 export default function HolidaysClient() {
   const thisYear = new Date().getFullYear();
@@ -62,7 +52,7 @@ export default function HolidaysClient() {
 
   const addOne = (e: React.FormEvent) => {
     e.preventDefault();
-    const dates = expandRange(start, end);
+    const dates = expandDateRange(start, end);
     if (!dates) return setMessage({ ok: false, text: "Rentang tanggal tidak valid (maks. 60 hari)" });
     submit(dates.map((date) => ({ date, name: name.trim(), type })), () => { setStart(""); setEnd(""); setName(""); });
   };
