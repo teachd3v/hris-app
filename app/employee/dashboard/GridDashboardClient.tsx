@@ -121,6 +121,8 @@ export default function GridDashboardClient({
               <button 
                 onClick={async () => {
                   const { signOut } = await import("next-auth/react");
+                  const { detachPushBeforeLogout } = await import("@/lib/push-client");
+                  await detachPushBeforeLogout();
                   await signOut({ callbackUrl: '/' });
                 }}
                 className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shadow-sm border border-white/20 text-white/90"

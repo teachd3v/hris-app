@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
+import { detachPushBeforeLogout } from "@/lib/push-client";
 
 export interface MenuItem {
   icon: string;
@@ -32,6 +33,7 @@ export default function Sidebar({ collapsed, onToggle, menuSections, user, locke
   const pathname = usePathname();
 
   const handleLogout = async () => {
+    await detachPushBeforeLogout();
     await signOut({ callbackUrl: '/' });
   };
 

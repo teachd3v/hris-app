@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BellRing, Loader2, Smartphone } from "lucide-react";
 import { getPushConfig, removePushSubscription, savePushSubscription, sendTestPush } from "@/app/employee/notifikasi/push-actions";
 import { b64uToBytes } from "@/lib/web-push";
+import { syncPushSubscription } from "@/lib/push-client";
 
 type Phase = "checking" | "hidden" | "needs-install" | "denied" | "off" | "on";
 
@@ -44,7 +45,10 @@ export default function PushToggle({ variant }: { variant: "card" | "row" }) {
     if (Notification.permission === "denied") return setPhase("denied");
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
-    setPhase(Notification.permission === "granted" && sub ? "on" : "off");
+    const active = Notification.permission === "granted" && Boolean(sub);
+    setPhase(active ? "on" : "off");
+    // Perangkat bisa dipakai bergantian beberapa akun: pastikan langganan tercatat atas akun yang sedang login
+    if (active) await syncPushSubscription();
   }, []);
 
   useEffect(() => { detect().catch(() => setPhase("hidden")); }, [detect]);
