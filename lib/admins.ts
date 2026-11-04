@@ -22,6 +22,14 @@ export function isAdminEmployee(emp: EmpLike, sessionEmail?: string | null) {
   return ADMIN_EMAILS.some((a) => emails.includes(a.toLowerCase()))
 }
 
+export type AccessLabel = 'Super Admin' | 'Admin' | 'Karyawan'
+
+/** Label peran untuk tampilan: Super Admin, Admin, atau Karyawan (memperhitungkan daftar email, bukan hanya kolom role). */
+export function accessLabelOf(emp: EmpLike, sessionEmail?: string | null): AccessLabel {
+  if (isSuperAdminEmployee(emp, sessionEmail)) return 'Super Admin'
+  return isAdminEmployee(emp, sessionEmail) ? 'Admin' : 'Karyawan'
+}
+
 export function isSuperAdminEmployee(emp: EmpLike, sessionEmail?: string | null) {
   const emails = emailsOf(emp, sessionEmail)
   return SUPER_ADMIN_EMAILS.some((a) => emails.includes(a.toLowerCase()))

@@ -85,7 +85,7 @@ export default function AdminDashboard({ employees: initialEmployees, isSuperAdm
       "Departemen": emp.department,
       "Status Kepegawaian": (emp as any).status || "-",
       "Status Approval": (emp as any).approval_status || "Approved",
-      "Role": (emp as any).role || "Karyawan",
+      "Role": (emp as any).accessLabel || (emp as any).role || "Karyawan",
       "Kelengkapan Data (%)": (emp as any).profileProgress || 0,
       "Total Dokumen": (emp as any).documentCount || 0
     }));
@@ -324,7 +324,7 @@ export default function AdminDashboard({ employees: initialEmployees, isSuperAdm
                 style={{ background: badge.bg, border: `1px solid ${badge.border}` }}
               >
                 <span className="text-[11px] font-bold" style={{ color: badge.color }}>{badge.label}</span>
-                <span className="text-[10px] font-medium text-ink-3">{emp.role || 'Karyawan'}</span>
+                <span className="text-[10px] font-medium text-ink-3">{(emp as any).accessLabel || emp.role || 'Karyawan'}</span>
               </div>
 
               {/* Progress */}

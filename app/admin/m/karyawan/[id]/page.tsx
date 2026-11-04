@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import MobileAdminShell from "@/components/admin/MobileAdminShell";
 import ResetPasswordButton from "@/components/admin/ResetPasswordButton";
 import { requireAdmin } from "@/lib/auth-guard";
-import { isAdminEmployee, isSuperAdminEmployee } from "@/lib/admins";
+import { accessLabelOf, isAdminEmployee, isSuperAdminEmployee } from "@/lib/admins";
 import { getDb } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 
@@ -42,7 +42,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     ["Email", emp.email],
     ["Email lembaga", emp.institutional_email],
     ["Telepon", emp.phone],
-    ["Peran", emp.role === "Admin" ? "Admin" : "Karyawan"],
+    ["Peran", accessLabelOf(emp)],
     ["Status akun", emp.approval_status || "Approved"],
   ];
 
