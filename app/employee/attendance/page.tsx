@@ -254,12 +254,19 @@ export default function AttendancePage() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    // Potong ke rasio 3:4 di tengah frame, sama dengan yang terlihat di kotak kamera
+    const vw = video.videoWidth || 640;
+    const vh = video.videoHeight || 480;
+    const target = 3 / 4;
+    let sx = 0, sy = 0, sw = vw, sh = vh;
+    if (vw / vh > target) { sw = vh * target; sx = (vw - sw) / 2; }
+    else { sh = vw / target; sy = (vh - sh) / 2; }
+    canvas.width = Math.round(sw);
+    canvas.height = Math.round(sh);
     const ctx = canvas.getContext('2d');
     if (!ctx) return Promise.resolve(null);
     
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
     
     return new Promise((resolve) => {
       canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.8);
@@ -316,7 +323,7 @@ export default function AttendancePage() {
         readySinceRef.current = null;
         return;
       }
-      setFaceBox(mapBoxToView(best, video.videoWidth, video.videoHeight, video.clientWidth, video.clientHeight, 'contain'));
+      setFaceBox(mapBoxToView(best, video.videoWidth, video.videoHeight, video.clientWidth, video.clientHeight, 'cover'));
       const ready = isFaceReady(best, video.videoWidth, video.videoHeight);
       if (!ready) {
         setCaptureIn(null);
@@ -472,21 +479,22 @@ export default function AttendancePage() {
       </div>
 
       {/* MOBILE CONTAINER (Visible only on Mobile screens < md) */}
-      <div className="w-full min-h-screen md:hidden relative flex flex-col pb-6">
+      <div className="w-full min-h-screen md:hidden relative flex flex-col pb-6 bg-white text-[var(--ink)]">
         
-        {/* Fullscreen Video Background */}
-        <div className="absolute inset-0 w-full h-full overflow-hidden bg-black z-0">
+        {/* Kotak kamera potret 3:4, di tengah antara header dan grup bawah */}
+        <div className="absolute inset-x-0 top-[140px] bottom-[130px] z-0 flex items-center justify-center pointer-events-none">
+        <div
+          className={`relative overflow-hidden rounded-[20px] bg-black shadow-md pointer-events-auto ${hasClockedOut || justClockedIn ? 'hidden' : ''}`}
+          style={{ height: 'min(100%, calc((100vw - 24px) * 4 / 3))', aspectRatio: '3 / 4' }}
+        >
           <video 
             ref={videoRef} 
             autoPlay 
             playsInline 
             muted 
-            className={`w-full h-full object-contain transition-opacity duration-500 ${streamActive ? 'opacity-100' : 'opacity-0'}`}
+            className={`w-full h-full object-cover transition-opacity duration-500 ${streamActive ? 'opacity-100' : 'opacity-0'}`}
           />
           <canvas ref={canvasRef} className="hidden" />
-          
-          {/* Dark gradient overlay so text is readable over camera */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/80 pointer-events-none" />
 
           {debugInfo && (
             <div className="absolute left-2 top-1/2 z-10 text-[10px] text-yellow-300 bg-black/60 px-2 py-1 rounded">{debugInfo}</div>
@@ -501,6 +509,7 @@ export default function AttendancePage() {
             />
           )}
         </div>
+        </div>
 
         {/* UI Overlay */}
         <div className="flex flex-col justify-between flex-1 p-6 z-10 h-full">
@@ -511,24 +520,24 @@ export default function AttendancePage() {
             <div className="flex justify-between items-center w-full mb-3">
               <div>
                 {!isLoading && !hasClockedOut && !justClockedIn && (
-                  <span className="inline-block px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-[11px] font-black uppercase tracking-wider">
+                  <span className="inline-block px-3 py-1 rounded-full bg-gray-100 border border-black/10 text-black text-[11px] font-black uppercase tracking-wider">
                     {hasClockedIn ? 'Clock Out' : 'Clock In'}
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-2">
-              <Link href="/employee/attendance/history" aria-label="Riwayat presensi" className="h-8 px-3 flex justify-center items-center gap-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 shadow-sm text-white text-[11px] font-bold"><Clock size={12} /> Riwayat</Link>
-              <button onClick={() => router.back()} className="w-8 h-8 flex justify-center items-center rounded-full bg-white/20 backdrop-blur-md border border-white/30 shadow-sm hover:bg-white/30 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="m15 18-6-6 6-6"/></svg>
+              <Link href="/employee/attendance/history" aria-label="Riwayat presensi" className="h-8 px-3 flex justify-center items-center gap-1 rounded-full bg-gray-100 border border-black/10 shadow-sm text-black text-[11px] font-bold"><Clock size={12} /> Riwayat</Link>
+              <button onClick={() => router.back()} className="w-8 h-8 flex justify-center items-center rounded-full bg-gray-100 border border-black/10 shadow-sm hover:bg-gray-200 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-black"><path d="m15 18-6-6 6-6"/></svg>
               </button>
               </div>
             </div>
 
             {/* Employee Info Block */}
-            <div className="flex items-center justify-between gap-3 w-full bg-black/40 backdrop-blur-md px-3 py-2 rounded-[14px] shadow-lg border border-white/20">
+            <div className="flex items-center justify-between gap-3 w-full bg-white px-3 py-2 rounded-[14px] shadow-sm border border-black/10">
                {/* Kiri: profil */}
                <div className="flex items-center gap-2 min-w-0 flex-1">
-                 <div className="w-8 h-8 rounded-full bg-white/10 overflow-hidden shrink-0 flex items-center justify-center font-bold text-[13px] text-white shadow-inner">
+                 <div className="w-8 h-8 rounded-full bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center font-bold text-[13px] text-black shadow-inner">
                     {employee?.photo_url ? (
                        <img src={employee.photo_url} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
@@ -536,17 +545,17 @@ export default function AttendancePage() {
                     )}
                  </div>
                  <div className="min-w-0">
-                    <p className="font-bold text-[12px] leading-tight text-white truncate">{employee?.name || 'Memuat data...'}</p>
-                    <p className="text-[10px] leading-tight text-white/70 truncate mt-0.5">{employee?.title || 'Karyawan'} • {employee?.dept || '-'}</p>
+                    <p className="font-bold text-[12px] leading-tight text-black truncate">{employee?.name || 'Memuat data...'}</p>
+                    <p className="text-[10px] leading-tight text-black/60 truncate mt-0.5">{employee?.title || 'Karyawan'} • {employee?.dept || '-'}</p>
                  </div>
                </div>
                {/* Kanan: tanggal dan jam presensi (hanya saat belum selesai presensi) */}
                {!hasClockedOut && !justClockedIn && !isLoading && (
-                 <div className="text-right shrink-0 border-l border-white/20 pl-3">
-                   <p className="text-[9px] leading-tight font-bold uppercase tracking-wide text-white/70">
+                 <div className="text-right shrink-0 border-l border-black/10 pl-3">
+                   <p className="text-[9px] leading-tight font-bold uppercase tracking-wide text-black/60">
                      {isMounted ? currentTime.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'Memuat...'}
                    </p>
-                   <p className="text-[17px] leading-tight font-black tracking-tight text-white tabular-nums mt-0.5">
+                   <p className="text-[17px] leading-tight font-black tracking-tight text-black tabular-nums mt-0.5">
                      {isMounted ? currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '00.00.00'}
                    </p>
                  </div>
@@ -679,10 +688,10 @@ export default function AttendancePage() {
             {!streamActive && !hasClockedOut && !justClockedIn && (
               cameraError ? (
                 <div className="absolute inset-0 flex items-center justify-center flex-col text-center z-20">
-                  <div className="bg-black/60 backdrop-blur-md p-6 rounded-[24px] border border-red-500/30">
+                  <div className="bg-white p-6 rounded-[24px] border border-red-200 shadow-lg">
                     <AlertCircle className="text-[var(--red)] mb-3 mx-auto" size={48} />
-                    <span className="text-[16px] font-bold text-white block">Akses Kamera Gagal</span>
-                    <span className="text-[12px] text-white/70 mt-2 mb-6 px-4 block">
+                    <span className="text-[16px] font-bold text-black block">Akses Kamera Gagal</span>
+                    <span className="text-[12px] text-black/60 mt-2 mb-6 px-4 block">
                       {cameraError}
                     </span>
                     <button 
@@ -695,10 +704,10 @@ export default function AttendancePage() {
                 </div>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center flex-col text-center z-20">
-                  <div className="bg-black/40 backdrop-blur-md p-6 rounded-[24px] border border-white/10">
-                    <Loader2 className="animate-spin text-white mb-3 mx-auto" size={36} />
-                    <span className="text-[15px] font-bold text-white block">Mempersiapkan Presensi</span>
-                    <span className="text-[12px] text-white/70 mt-1 block">Mengakses kamera & GPS...</span>
+                  <div className="bg-white p-6 rounded-[24px] border border-black/10 shadow-lg">
+                    <Loader2 className="animate-spin text-black mb-3 mx-auto" size={36} />
+                    <span className="text-[15px] font-bold text-black block">Mempersiapkan Presensi</span>
+                    <span className="text-[12px] text-black/60 mt-1 block">Mengakses kamera & GPS...</span>
                   </div>
                 </div>
               )
@@ -712,7 +721,7 @@ export default function AttendancePage() {
              {!hasClockedOut && !justClockedIn && (
                /* Satu grup menempel di dasar layar: info lokasi + status deteksi wajah */
                <div className="fixed bottom-0 inset-x-0 z-20 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-               <div className="flex flex-col gap-2 bg-black/60 backdrop-blur-md p-2.5 rounded-[20px] border border-white/20 shadow-[0_-8px_30px_rgba(0,0,0,0.35)]">
+               <div className="flex flex-col gap-2 bg-white p-2.5 rounded-[20px] border border-black/10 shadow-[0_-6px_24px_rgba(0,0,0,0.10)]">
                  {/* Info lokasi */}
                  <div className="px-1.5 pt-0.5 text-[12px] flex items-center gap-2.5">
                    {locationError ? (
@@ -724,13 +733,13 @@ export default function AttendancePage() {
                    )}
                    
                    <div className="flex-1 min-w-0">
-                     <p className="font-semibold text-[12px] leading-tight truncate text-white flex items-center gap-1.5">
+                     <p className="font-semibold text-[12px] leading-tight truncate text-black flex items-center gap-1.5">
                        {locationError ? 'Gagal mendapatkan lokasi' : 'Lokasi Terdeteksi'}
                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-[var(--yellow)] text-black uppercase shrink-0">
                          Uji Coba
                        </span>
                      </p>
-                     <p className={`truncate text-[11px] leading-tight mt-0.5 font-medium ${isLocationValid ? 'text-[var(--green)]' : 'text-white/70'}`}>
+                     <p className={`truncate text-[11px] leading-tight mt-0.5 font-medium ${isLocationValid ? 'text-[var(--green)]' : 'text-black/60'}`}>
                        {locationError ? (
                          'GPS tidak aktif/error • Tetap bisa absen'
                        ) : distance === null ? (
@@ -758,7 +767,7 @@ export default function AttendancePage() {
                      disabled
                      data-testid="detect-status"
                      className={`w-full h-12 rounded-full font-bold text-[14px] flex justify-center items-center gap-2 border ${
-                       captureIn != null ? 'bg-[var(--green)] text-white border-white/20' : 'bg-white/20 text-white border-white/10'
+                       captureIn != null ? 'bg-[var(--green)] text-white border-transparent' : 'bg-gray-100 text-black border-black/10'
                      }`}
                    >
                      {captureIn != null ? (
@@ -782,15 +791,21 @@ export default function AttendancePage() {
 
       {/* Layar konfirmasi foto (HP): Ulangi atau Setujui */}
       {captured && phase === 'review' && (
-        <div data-testid="review-screen" className="md:hidden fixed inset-0 z-[60] bg-black flex flex-col">
-          <img src={captured.url} alt="Hasil foto presensi" className="absolute inset-0 w-full h-full object-contain" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/80 pointer-events-none" />
+        <div data-testid="review-screen" className="md:hidden fixed inset-0 z-[60] bg-white text-black flex flex-col">
           <div className="relative z-10 flex flex-col justify-between h-full p-6">
             <div className="mt-2">
-              <h2 className="text-2xl font-bold tracking-tight text-white drop-shadow-md">Konfirmasi Foto</h2>
-              <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-[11px] font-black uppercase tracking-wider">
+              <h2 className="text-2xl font-bold tracking-tight text-black">Konfirmasi Foto</h2>
+              <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full bg-gray-100 border border-black/10 text-black text-[11px] font-black uppercase tracking-wider">
                 {hasClockedIn ? 'Clock Out' : 'Clock In'}
               </span>
+            </div>
+            <div className="flex items-center justify-center flex-1 py-3 min-h-0">
+              <img
+                src={captured.url}
+                alt="Hasil foto presensi"
+                className="rounded-[20px] shadow-md bg-black object-cover"
+                style={{ maxHeight: '100%', maxWidth: '100%', aspectRatio: '3 / 4' }}
+              />
             </div>
             <div className="flex flex-col gap-3">
               <button
@@ -803,7 +818,7 @@ export default function AttendancePage() {
               <button
                 disabled={isSubmitting}
                 onClick={retakePhoto}
-                className="w-full h-12 rounded-full font-bold text-[14px] bg-white/20 backdrop-blur-md border border-white/30 text-white active:scale-95 transition-transform disabled:opacity-50"
+                className="w-full h-12 rounded-full font-bold text-[14px] bg-gray-100 border border-black/10 text-black active:scale-95 transition-transform disabled:opacity-50"
               >
                 Ulangi
               </button>
