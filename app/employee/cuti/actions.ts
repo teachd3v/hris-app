@@ -10,6 +10,7 @@ import { getLeaveBalances, type LeaveBalance } from '@/lib/leave-balance'
 import { isTopLeader } from '@/lib/org'
 import { loadHolidayDates } from '@/lib/holidays'
 import { auditStmt } from '@/lib/audit'
+import { adminRecipientIds, leaveBrief, notifyStmts, planHcDecision, planManagerDecision, planOverride, planSubmitted, resolveStmt } from '@/lib/notifications'
 import { LEAVE_TYPES, LEAVE_TYPE_KEYS, HC_OVERRIDE_PREFIX, calculateLeaveDuration, validateLeaveDates, parseIsoDate, type LeaveCategory } from '@/lib/leave'
 import { eq, and, desc, asc, inArray, or, lte, gte, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
@@ -207,9 +208,19 @@ export async function createLeaveRequest(formData: FormData): Promise<ActionResu
   }
 
   const now = new Date().toISOString()
+  const requestId = crypto.randomUUID()
   try {
-    await db.insert(schema.leave_requests).values({
-      id: crypto.randomUUID(),
+    // Notifikasi untuk atasan langsung dan semua admin dibuat atomik bersama pengajuannya
+    const managerName = employee.manager_id
+      ? (await db.select({ name: schema.employees.name }).from(schema.employees).where(eq(schema.employees.id, employee.manager_id)).limit(1))[0]?.name ?? null
+      : null
+    const notifications = planSubmitted({
+      requestId, requesterId: employee.id, requesterName: employee.name ?? 'Karyawan',
+      brief: leaveBrief(leaveType, startDate, endDate, duration),
+      managerId: employee.manager_id ?? null, managerName, adminIds: await adminRecipientIds(db),
+    })
+    await db.batch([db.insert(schema.leave_requests).values({
+      id: requestId,
       employee_id: employee.id,
       leave_type: leaveType,
       start_date: startDate,
@@ -222,7 +233,7 @@ export async function createLeaveRequest(formData: FormData): Promise<ActionResu
       attachment_url: attachmentUrl,
       created_at: now,
       updated_at: now,
-    })
+    }), ...notifyStmts(db, notifications)] as any)
   } catch (e) {
     if (attachment) await deleteFromStorage(attachment.key).catch(() => {})
     throw e
@@ -242,11 +253,15 @@ export async function cancelLeaveRequest(id: string): Promise<ActionResult> {
   if (!PENDING.includes(request.status as LeaveStatus)) return { error: 'Pengajuan sudah diproses, tidak dapat dibatalkan' }
 
   // Hanya hapus jika masih pending (cegah balapan dengan approval)
-  await db.delete(schema.leave_requests).where(and(
-    eq(schema.leave_requests.id, id),
-    eq(schema.leave_requests.employee_id, employee.id),
-    inArray(schema.leave_requests.status, PENDING),
-  ))
+  // Notifikasi "perlu aksi" untuk atasan/admin ikut dianggap selesai
+  await db.batch([
+    db.delete(schema.leave_requests).where(and(
+      eq(schema.leave_requests.id, id),
+      eq(schema.leave_requests.employee_id, employee.id),
+      inArray(schema.leave_requests.status, PENDING),
+    )),
+    resolveStmt(db, id),
+  ] as any)
 
   const prefix = `/storage/leave_attachments/${employee.id}/`
   if (request.attachment_url?.startsWith(prefix)) {
@@ -316,6 +331,12 @@ export async function approveByManager(id: string, isApproved: boolean, notes: s
     ...(await auditStmt(db, { id: manager.id, name: manager.name, email: manager.email }, {
       action: 'leave.manager_decision', targetType: 'leave_request', targetId: id, targetLabel: requester?.name ?? null,
       details: { decision: isApproved ? 'setuju' : 'tolak', leave_type: request.leave_type, start: request.start_date, end: request.end_date, days: request.total_days, notes: cleanNotes || undefined },
+    })),
+    resolveStmt(db, id, { exceptEmployeeId: request.employee_id ?? undefined }),
+    ...notifyStmts(db, planManagerDecision({
+      requestId: id, requesterId: request.employee_id ?? '', requesterName: requester?.name ?? 'Karyawan',
+      brief: leaveBrief(request.leave_type ?? '', request.start_date ?? '', request.end_date ?? '', request.total_days),
+      actorId: manager.id, approved: isApproved, adminIds: await adminRecipientIds(db),
     })),
   ] as any)
 
@@ -406,6 +427,12 @@ export async function approveByHC(id: string, isApproved: boolean, notes: string
       action: 'leave.hc_decision', targetType: 'leave_request', targetId: id, targetLabel: requesterHc?.name ?? null,
       details: { decision: isApproved ? 'setuju' : 'tolak', leave_type: request.leave_type, start: request.start_date, end: request.end_date, days: request.total_days, notes: cleanNotes || undefined },
     })),
+    resolveStmt(db, id, { exceptEmployeeId: request.employee_id ?? undefined }),
+    ...notifyStmts(db, planHcDecision({
+      requestId: id, requesterId: request.employee_id ?? '', requesterName: requesterHc?.name ?? 'Karyawan',
+      brief: leaveBrief(request.leave_type ?? '', request.start_date ?? '', request.end_date ?? '', request.total_days),
+      approved: isApproved,
+    })),
   ] as any)
 
   revalidatePath('/employee/cuti')
@@ -445,6 +472,12 @@ export async function overrideByHC(id: string, isApproved: boolean, reason: stri
     ...(await auditStmt(db, { id: admin.emp.id, name: admin.emp.name, email: admin.emp.email }, {
       action: 'leave.hc_override', targetType: 'leave_request', targetId: id, targetLabel: requester?.name ?? null,
       details: { decision: isApproved ? 'setuju' : 'tolak', leave_type: request.leave_type, start: request.start_date, end: request.end_date, days: request.total_days, manager_id: requester?.manager_id ?? undefined, reason: cleanReason },
+    })),
+    resolveStmt(db, id, { exceptEmployeeId: request.employee_id ?? undefined }),
+    ...notifyStmts(db, planOverride({
+      requestId: id, requesterId: request.employee_id ?? '', requesterName: requester?.name ?? 'Karyawan',
+      brief: leaveBrief(request.leave_type ?? '', request.start_date ?? '', request.end_date ?? '', request.total_days),
+      actorId: admin.emp.id, approved: isApproved, managerId: requester?.manager_id ?? null,
     })),
   ] as any)
 

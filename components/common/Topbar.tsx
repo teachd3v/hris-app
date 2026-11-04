@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, ArrowLeftRight, Home } from "lucide-react";
 import GlobalSearch from "./GlobalSearch";
+import NotificationBell from "./NotificationBell";
 
 import { getSession, signOut } from "next-auth/react";
 
@@ -80,6 +81,8 @@ export default function Topbar({
             </span>
           </button>
         )}
+
+        <NotificationBell variant="topbar" />
 
         <div id="tour-profile" className="topbar-profile">
           <div className="topbar-avatar overflow-hidden">

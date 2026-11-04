@@ -5,6 +5,7 @@ import { Bell } from "lucide-react";
 import Link from "next/link";
 import DashboardLayout from "@/components/common/DashboardLayout";
 import { EMPLOYEE_MENU } from "@/lib/navigation";
+import NotificationBell from "@/components/common/NotificationBell";
 
 const APPS = [
   { icon: "🕘", label: "Riwayat", desc: "Presensi", href: "/employee/attendance/history", color: "bg-sky-50 text-sky-600" },
@@ -115,10 +116,7 @@ export default function GridDashboardClient({
           <div className="relative z-10 flex justify-between items-center mb-6">
             <p className="text-white/90 text-[14px] font-bold tracking-widest uppercase">Dashboard</p>
             <div className="flex items-center gap-2.5">
-              <button className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center relative shadow-sm border border-white/20">
-                <Bell size={16} />
-                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[var(--yellow)] rounded-full"></span>
-              </button>
+              <NotificationBell variant="hero" />
               <button 
                 onClick={async () => {
                   const { signOut } = await import("next-auth/react");
