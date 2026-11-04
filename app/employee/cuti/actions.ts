@@ -120,6 +120,13 @@ export async function getEmployeeLeaveInfo(): Promise<EmployeeLeaveInfo | { erro
   }
 }
 
+// 2b. Jatah cuti per jenis untuk tahun tertentu (form pengajuan memakai tahun tanggal mulai, sama dengan validasi server)
+export async function getMyLeaveBalances(year: number): Promise<LeaveBalance[]> {
+  const { db, employee } = await currentEmployee()
+  if (!Number.isInteger(year) || year < 2020 || year > 2100) return []
+  return getLeaveBalances(db, employee, year)
+}
+
 // 3. Buat pengajuan cuti baru. Semua aturan divalidasi di server.
 export async function createLeaveRequest(formData: FormData): Promise<ActionResult> {
   const { db, employee } = await currentEmployee()
@@ -174,7 +181,7 @@ export async function createLeaveRequest(formData: FormData): Promise<ActionResu
   const balances = await getLeaveBalances(db, employee, Number(startDate.slice(0, 4)))
   const balance = balances.find((b) => b.type === leaveType)!
   if (balance.remaining !== null && duration > balance.remaining) {
-    return { error: `Kuota ${meta.label} tidak mencukupi (tersisa ${Math.max(balance.remaining, 0)} hari)` }
+    return { error: `Kuota ${meta.label} tidak mencukupi: diajukan ${duration} hari kerja, tersisa ${Math.max(balance.remaining, 0)} hari` }
   }
 
   // Lampiran
