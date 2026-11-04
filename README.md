@@ -88,7 +88,7 @@ Migrasi ada di `drizzle/` dan dijalankan **manual** dengan `wrangler d1 execute 
 npx wrangler d1 execute hris-teachapp-db --remote --file=drizzle/<berkas>.sql
 ```
 
-Urutan untuk database baru: `0000` → `0010`. Berkas `custom_migration_institutional_email.sql` adalah sisa lama (sudah tercakup `0002`), **jangan** dijalankan di database baru. `drizzle/manual/` berisi SQL pendukung:
+Urutan untuk database baru: `0000` → `0011`. Berkas `custom_migration_institutional_email.sql` adalah sisa lama (sudah tercakup `0002`), **jangan** dijalankan di database baru. `drizzle/manual/` berisi SQL pendukung:
 
 - `check_duplicates.sql` — jalankan sebelum menambah indeks unik (`0005`, `0006`).
 - `create_leave_requests.sql` — membuat `leave_requests` bila belum ada (database lama).
@@ -116,6 +116,7 @@ lib/admins.ts        definisi admin & super admin
 lib/auth-guard.ts    penjaga halaman/aksi server
 lib/leave*.ts        aturan cuti & perhitungan jatah
 lib/audit.ts         pencatatan log audit (atomik dengan aksinya)
+lib/notifications.ts  notifikasi di dalam aplikasi (lonceng): penerima per kejadian cuti, atomik dengan aksinya
 lib/upload.ts        validasi unggahan (ukuran, magic bytes)
 lib/db/schema.ts     skema Drizzle (sumber migrasi)
 drizzle/             migrasi SQL

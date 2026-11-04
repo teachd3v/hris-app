@@ -265,6 +265,23 @@ export const audit_log = sqliteTable("audit_log", {
   actorIdx: index("audit_log_actor_idx").on(t.actor_id, t.at),
 }));
 
+// Notifikasi di dalam aplikasi (lonceng + halaman Notifikasi). Satu baris per penerima.
+// Dibuat di batch yang sama dengan aksinya (lihat lib/notifications.ts). read_at kosong = belum dibaca.
+export const notifications = sqliteTable("notifications", {
+  id: text("id").primaryKey(),
+  employee_id: text("employee_id").notNull(), // penerima
+  type: text("type").notNull(), // mis. 'leave.submitted'
+  title: text("title").notNull(),
+  body: text("body"),
+  href: text("href"), // halaman tujuan saat diketuk
+  entity_id: text("entity_id"), // id pengajuan terkait; dipakai menandai selesai saat diputuskan/dibatalkan
+  created_at: text("created_at").notNull(), // ISO UTC
+  read_at: text("read_at"),
+}, (t) => ({
+  recipientIdx: index("notifications_recipient_idx").on(t.employee_id, t.created_at),
+  entityIdx: index("notifications_entity_idx").on(t.entity_id),
+}));
+
 // Hari libur: tidak dihitung sebagai hari kerja pada pengajuan cuti. Satu baris per tanggal.
 export const holidays = sqliteTable("holidays", {
   date: text("date").primaryKey(), // YYYY-MM-DD
