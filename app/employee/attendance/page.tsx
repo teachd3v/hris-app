@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchAttendanceData, submitAttendance } from './actions';
 import { Camera, Clock, CheckCircle, AlertCircle, Loader2, Navigation2, Smartphone, Lock, ShieldAlert } from 'lucide-react';
 import { getDistanceFromLatLonInKm, OFFICE_LAT, OFFICE_LNG, MAX_RADIUS_KM } from '@/lib/geo';
+import { CLOCK_OUT_QUOTES } from '@/lib/clock-out-quotes';
 import { loadFaceDetector, mapBoxToView, isFaceReady, type ViewBox } from '@/lib/face-detector';
 import type { FaceDetector } from '@mediapipe/tasks-vision';
 import { useRouter } from 'next/navigation';
@@ -37,6 +38,8 @@ export default function AttendancePage() {
   const [justClockedIn, setJustClockedIn] = useState(false);
   const [cameraError, setCameraError] = useState<string>('');
   const [debugInfo, setDebugInfo] = useState<string>('');
+  // Kutipan dipilih sekali per kunjungan halaman (jangan acak ulang tiap render, jam berdetik tiap detik)
+  const [quoteIndex] = useState(() => Math.floor(Math.random() * CLOCK_OUT_QUOTES.length));
 
   // Alur: detecting (cari wajah) -> countdown 3 detik -> review (konfirmasi foto) -> kirim
   const [phase, setPhase] = useState<'detecting' | 'review'>('detecting');
@@ -581,11 +584,13 @@ export default function AttendancePage() {
           /* Premium Clock Out Summary Dashboard */
           <div className="w-full bg-white/90 backdrop-blur-md p-6 rounded-[28px] shadow-[0_12px_30px_rgba(0,0,0,0.04)] border border-[var(--glass-border)] mb-6 flex flex-col gap-6 text-center animate-in fade-in zoom-in-95 duration-500">
             <div>
-              <div className="w-16 h-16 bg-[var(--blue-soft)] rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner border border-[var(--blue)]/20">
-                <CheckCircle size={32} className="text-[var(--blue)]" />
+              <div className="flex items-center justify-center gap-3">
+                <div className="w-10 h-10 shrink-0 bg-[var(--blue-soft)] rounded-full flex items-center justify-center shadow-inner border border-[var(--blue)]/20">
+                  <CheckCircle size={22} className="text-[var(--blue)]" />
+                </div>
+                <h3 className="text-xl font-extrabold text-[var(--ink)]">Terima Kasih!</h3>
               </div>
-              <h3 className="text-xl font-extrabold text-[var(--ink)]">Presensi Hari Ini Lengkap!</h3>
-              <p className="text-[13px] text-[var(--ink-3)] mt-1">Terima kasih atas kontribusi dan dedikasi Anda hari ini.</p>
+              <p data-testid="clock-out-quote" className="text-[13px] italic text-[var(--ink-3)] mt-2 leading-relaxed">&ldquo;{CLOCK_OUT_QUOTES[quoteIndex]}&rdquo;</p>
             </div>
 
             {/* Circular Progress & Working Duration */}
