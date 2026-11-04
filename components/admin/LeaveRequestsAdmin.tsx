@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { approveByHC, listAdminRequests, type LeaveRequest } from "@/app/employee/cuti/actions";
+import { approveByHC, overrideByHC, listAdminRequests, type LeaveRequest } from "@/app/employee/cuti/actions";
+import { isHcOverride } from "@/lib/leave";
 import ApprovalList from "@/components/cuti/ApprovalList";
 
 const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
@@ -15,7 +16,7 @@ const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
 const fmt = (d: string) => new Date(d).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 
 export default function LeaveRequestsAdmin() {
-  const [tab, setTab] = useState<"pending" | "all">("pending");
+  const [tab, setTab] = useState<"pending" | "stalled" | "all">("pending");
   const [all, setAll] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,6 +33,8 @@ export default function LeaveRequestsAdmin() {
 
   // Yang paling lama menunggu tampil paling atas
   const pending = all.filter((r) => r.status === "PENDING_HC_ADMIN").sort((a, b) => a.created_at.localeCompare(b.created_at));
+  // Tertahan di atasan: HC boleh mengambil alih (alasan wajib, tercatat di audit)
+  const stalled = all.filter((r) => r.status === "PENDING_DIRECT_MANAGER").sort((a, b) => a.created_at.localeCompare(b.created_at));
 
   return (
     <div className="flex flex-col gap-5">
@@ -44,7 +47,7 @@ export default function LeaveRequestsAdmin() {
       </div>
 
       <div className="flex gap-2">
-        {([["pending", `Menunggu HC (${pending.length})`], ["all", "Semua Riwayat"]] as const).map(([key, label]) => (
+        {([["pending", `Menunggu HC (${pending.length})`], ["stalled", `Tertahan di Atasan (${stalled.length})`], ["all", "Semua Riwayat"]] as const).map(([key, label]) => (
           <button key={key} type="button" onClick={() => setTab(key)} className={`px-4 py-2 rounded-full text-xs font-bold border ${tab === key ? "bg-ink text-white border-ink" : "bg-white text-ink-2 border-line-2"}`}>{label}</button>
         ))}
       </div>
@@ -62,6 +65,24 @@ export default function LeaveRequestsAdmin() {
               return res;
             }}
           />
+        ) : tab === "stalled" ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-[12px] text-ink-3">Pengajuan yang belum diproses atasan langsung. HC dapat mengambil alih dan keputusannya final (tidak perlu persetujuan atasan). Alasan wajib diisi dan tercatat di log audit.</p>
+            <ApprovalList
+              requests={stalled}
+              takeover
+              requireNotes
+              notesPlaceholder="Alasan ambil alih (wajib)"
+              approveText="Ambil Alih: Setujui"
+              rejectText="Ambil Alih: Tolak"
+              emptyText="Tidak ada pengajuan yang tertahan di atasan."
+              onDecide={async (id, approve, notes) => {
+                const res = await overrideByHC(id, approve, notes);
+                if (!res.error) await load();
+                return res;
+              }}
+            />
+          </div>
         ) : all.length === 0 ? (
           <p className="text-sm text-ink-3 text-center py-8">Belum ada pengajuan.</p>
         ) : (
@@ -85,7 +106,10 @@ export default function LeaveRequestsAdmin() {
                       <td className="py-2 px-2 text-ink-2">{r.leave_type}</td>
                       <td className="py-2 px-2 text-ink-2 whitespace-nowrap">{fmt(r.start_date)} - {fmt(r.end_date)}</td>
                       <td className="py-2 px-2 text-right text-ink-2">{r.duration_days}</td>
-                      <td className="py-2 pl-2"><span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase border ${st.cls}`}>{st.text}</span></td>
+                      <td className="py-2 pl-2">
+                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase border ${st.cls}`}>{st.text}</span>
+                        {isHcOverride(r) && <span className="ml-1 text-[10px] font-bold text-orange-700">(ambil alih HC)</span>}
+                      </td>
                     </tr>
                   );
                 })}

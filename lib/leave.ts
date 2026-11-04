@@ -43,6 +43,10 @@ export function parseIsoDate(s: string): Date | null {
   return isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s ? null : d;
 }
 
+/** Awalan catatan HC saat mengambil alih pengajuan yang tertahan di atasan (dipakai server dan tampilan). */
+export const HC_OVERRIDE_PREFIX = 'Ambil alih HC: ';
+export const isHcOverride = (r: { hc_notes?: string | null }) => Boolean(r.hc_notes?.startsWith(HC_OVERRIDE_PREFIX));
+
 export type HolidayDates = ReadonlySet<string>;
 
 // Catatan kebijakan: JOINT (Cuti Bersama) saat ini diperlakukan sama dengan NATIONAL, yaitu tidak dihitung
