@@ -37,23 +37,65 @@ export interface PushMessage {
   tag?: string
 }
 
-/** Kirim satu pesan ke semua perangkat milik para penerima. Mengembalikan jumlah terkirim; langganan mati dihapus. */
-export async function sendPushToEmployees(db: Db, employeeIds: string[], message: PushMessage, vapid: VapidConfig): Promise<number> {
-  if (employeeIds.length === 0) return 0
+export interface PushFailure {
+  /** Nama host layanan push (mis. fcm.googleapis.com), bukan URL lengkap (URL berisi token perangkat) */
+  host: string
+  /** Kode HTTP dari layanan push, bila ada jawaban */
+  status?: number
+  /** Pesan error lokal (enkripsi/jaringan), bila tidak ada jawaban */
+  error?: string
+}
+
+export interface PushSummary {
+  /** Jumlah perangkat terdaftar milik para penerima */
+  devices: number
+  sent: number
+  /** Langganan yang sudah mati (404/410) dan dihapus */
+  removed: number
+  failures: PushFailure[]
+}
+
+/** Kirim satu pesan ke semua perangkat milik para penerima. Langganan mati dihapus; rincian kegagalan dikembalikan. */
+export async function sendPushToEmployees(db: Db, employeeIds: string[], message: PushMessage, vapid: VapidConfig): Promise<PushSummary> {
+  const summary: PushSummary = { devices: 0, sent: 0, removed: 0, failures: [] }
+  if (employeeIds.length === 0) return summary
   const subs = await db.select().from(schema.push_subscriptions).where(inArray(schema.push_subscriptions.employee_id, employeeIds)).limit(MAX_DEVICES_PER_CALL)
   const payload = JSON.stringify({ title: message.title, body: message.body ?? '', href: message.href ?? '/employee/notifikasi', tag: message.tag })
-  let sent = 0
+  summary.devices = subs.length
   await Promise.allSettled(subs.map(async (s) => {
+    const host = new URL(s.endpoint).hostname
     try {
-      const res = await sendWebPush({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, payload, vapid)
-      if (res.gone) await db.delete(schema.push_subscriptions).where(eq(schema.push_subscriptions.endpoint, s.endpoint))
-      else if (res.status >= 200 && res.status < 300) sent++
-      else console.warn('Push ditolak', res.status, new URL(s.endpoint).hostname)
+      // Urgency tinggi: pemberitahuan persetujuan perlu sampai segera, termasuk saat HP dalam mode hemat daya (Doze)
+      const res = await sendWebPush({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, payload, vapid, { urgency: 'high' })
+      if (res.gone) {
+        await db.delete(schema.push_subscriptions).where(eq(schema.push_subscriptions.endpoint, s.endpoint))
+        summary.removed++
+        summary.failures.push({ host, status: res.status })
+      } else if (res.status >= 200 && res.status < 300) {
+        summary.sent++
+      } else {
+        console.warn('Push ditolak', res.status, host)
+        summary.failures.push({ host, status: res.status })
+      }
     } catch (e) {
-      console.warn('Push gagal', new URL(s.endpoint).hostname, e instanceof Error ? e.message : e)
+      const error = e instanceof Error ? e.message : String(e)
+      console.warn('Push gagal', host, error)
+      summary.failures.push({ host, error })
     }
   }))
-  return sent
+  return summary
+}
+
+/** Pesan untuk pengguna dari hasil pengiriman yang gagal (tanpa membocorkan token perangkat). */
+export function describePushFailure(failures: PushFailure[], removed: number): string {
+  const f = failures[0]
+  const via = f?.host ? ` (${f.host})` : ''
+  if (removed > 0) return 'Langganan perangkat ini sudah kedaluwarsa dan dihapus. Ketuk Aktifkan lagi di perangkat ini.'
+  if (f?.status === 401 || f?.status === 403) return `Layanan push menolak kunci server${via}, kode ${f.status}. Periksa VAPID_PUBLIC_KEY dan VAPID_PRIVATE_KEY: keduanya harus berasal dari satu kali pembuatan, tanpa spasi atau awalan "VAPID_...=". Setelah diperbaiki, Matikan lalu Aktifkan lagi notifikasi di perangkat.`
+  if (f?.status === 400 || f?.status === 413) return `Layanan push menolak permintaan${via}, kode ${f.status}.`
+  if (f?.status) return `Layanan push menjawab kode ${f.status}${via}. Coba lagi beberapa saat.`
+  if (f?.error && /vapid|jwk|key|kunci/i.test(f.error)) return `Kunci VAPID tidak bisa dipakai${via}: ${f.error}. Kunci publik harus 87 karakter dan kunci privat 43 karakter, tanpa spasi atau awalan "VAPID_...=".`
+  return `Pengiriman gagal${via}: ${f?.error ?? 'penyebab tidak diketahui'}`
 }
 
 /** Kirim push untuk daftar notifikasi, tanpa menunggu (waitUntil di Workers). Aman dipanggil tanpa konfigurasi VAPID. */

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, ArrowLeftRight, Home } from "lucide-react";
 import GlobalSearch from "./GlobalSearch";
 import NotificationBell from "./NotificationBell";
+import { detachPushBeforeLogout } from "@/lib/push-client";
 
 import { getSession, signOut } from "next-auth/react";
 
@@ -46,6 +47,7 @@ export default function Topbar({
   }, [role]);
 
   const handleLogout = async () => {
+    await detachPushBeforeLogout();
     await signOut({ callbackUrl: '/' });
   };
 

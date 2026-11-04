@@ -3,7 +3,7 @@
 import { auth } from '@/auth'
 import { getDb } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
-import { isAllowedPushEndpoint, sendPushToEmployees, vapidConfig } from '@/lib/push'
+import { describePushFailure, isAllowedPushEndpoint, sendPushToEmployees, vapidConfig } from '@/lib/push'
 import { and, asc, eq } from 'drizzle-orm'
 
 const MAX_DEVICES_PER_EMPLOYEE = 8
@@ -57,12 +57,14 @@ export async function removePushSubscription(endpoint: string): Promise<void> {
   await getDb().delete(schema.push_subscriptions).where(and(eq(schema.push_subscriptions.endpoint, String(endpoint)), eq(schema.push_subscriptions.employee_id, me)))
 }
 
-/** Kirim notifikasi uji ke semua perangkat akun sendiri (untuk memastikan push sampai). */
+/** Kirim notifikasi uji ke semua perangkat akun sendiri. Bila gagal, pesan menyebut penyebabnya (tanpa membocorkan token). */
 export async function sendTestPush(): Promise<{ sent: number; error?: string }> {
   const me = await currentId()
   if (!me) return { sent: 0, error: 'Belum login' }
   const vapid = vapidConfig()
   if (!vapid) return { sent: 0, error: 'Notifikasi HP belum diaktifkan di server' }
-  const sent = await sendPushToEmployees(getDb(), [me], { title: 'Notifikasi uji', body: 'Notifikasi HP Anda sudah aktif.', href: '/employee/notifikasi', tag: 'test' }, vapid)
-  return sent > 0 ? { sent } : { sent: 0, error: 'Tidak ada perangkat yang menerima. Aktifkan notifikasi di perangkat ini lebih dulu.' }
+  const r = await sendPushToEmployees(getDb(), [me], { title: 'Notifikasi uji', body: 'Notifikasi HP Anda sudah aktif.', href: '/employee/notifikasi', tag: 'test' }, vapid)
+  if (r.sent > 0) return { sent: r.sent }
+  if (r.devices === 0) return { sent: 0, error: 'Belum ada perangkat terdaftar untuk akun ini. Ketuk Matikan lalu Aktifkan lagi di perangkat ini.' }
+  return { sent: 0, error: describePushFailure(r.failures, r.removed) }
 }
