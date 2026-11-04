@@ -20,6 +20,7 @@ export default function MobileHeroShell({
   backLabel,
   userName,
   userPhoto,
+  action,
   children,
 }: {
   role: "Admin" | "Karyawan";
@@ -31,6 +32,8 @@ export default function MobileHeroShell({
   backLabel: string;
   userName: string;
   userPhoto?: string;
+  /** Tombol ikon di pojok kanan hero (HP), ukurannya sama dengan tombol kembali agar judul tetap simetris. */
+  action?: ReactNode;
   children: ReactNode;
 }) {
   const initials = userName.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2);
@@ -39,8 +42,10 @@ export default function MobileHeroShell({
       <div className="flex flex-col min-h-screen md:min-h-0 bg-[var(--bg)] md:bg-transparent pb-8">
         <div className="relative pt-5 pb-12 px-6 bg-[var(--red)] text-white rounded-b-[40px] md:hidden overflow-hidden shadow-md shrink-0">
           <Link href={backHref} aria-label={backLabel} className="absolute top-5 left-6 z-20 w-10 h-10 flex items-center justify-center bg-white/10 rounded-full"><ChevronLeft size={20} strokeWidth={2.5} /></Link>
-          <h1 className="relative z-10 text-center text-white/90 text-[14px] font-bold tracking-widest uppercase mt-2">{title}</h1>
-          {subtitle && <p className="relative z-10 text-center text-white/80 text-[11px] mt-1">{subtitle}</p>}
+          {action && <div className="absolute top-5 right-6 z-20">{action}</div>}
+          {/* Padding kiri-kanan sama dengan lebar tombol (40px + jarak) supaya judul tepat di tengah dan tidak menabrak tombol */}
+          <h1 className="relative z-10 text-center text-white/90 text-[14px] font-bold tracking-widest uppercase mt-2 px-12 truncate">{title}</h1>
+          {subtitle && <p className="relative z-10 text-center text-white/80 text-[11px] mt-1 px-12 truncate">{subtitle}</p>}
         </div>
         <div className="hidden md:block page-head px-5 pt-5">
           <span className="eyebrow">{eyebrow}</span>

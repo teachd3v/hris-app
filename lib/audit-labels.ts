@@ -7,6 +7,7 @@ export const AUDIT_ACTION_LABELS = {
   'role.change': 'Ubah peran',
   'account.approval': 'Ubah status akun',
   'manager.set': 'Ubah atasan',
+  'employee.update': 'Ubah data karyawan',
   'leave.manager_decision': 'Keputusan atasan (cuti)',
   'leave.hc_decision': 'Keputusan HC (cuti)',
   'leave.hc_override': 'Ambil alih HC (cuti tertahan di atasan)',

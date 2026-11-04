@@ -9,6 +9,8 @@ import { isTopLeader, normalizeName } from '@/lib/org'
 import { isAdminEmployee, isSuperAdminEmployee } from '@/lib/admins'
 import { deleteStoragePrefix } from '@/lib/storage'
 import { auditStmt } from '@/lib/audit'
+import { parseIsoDate } from '@/lib/leave'
+import { DEPT_OPTIONS, LEVEL_OPTIONS, STATUS_OPTIONS, tenureFrom } from '@/lib/employment-options'
 import { revalidatePath } from 'next/cache'
 
 export async function updateEmployeeApprovalStatus(
@@ -55,6 +57,87 @@ export async function updateEmployeeApprovalStatus(
   ] as any)
 
   revalidatePath('/admin/employees')
+  return {}
+}
+
+export interface EmployeeBasicInput {
+  name: string
+  employee_code: string
+  title: string
+  dept: string
+  level: string
+  status: string
+  join_date: string
+  phone: string
+}
+
+const PHONE_RE = /^[0-9+\-\s()]{6,20}$/
+
+/**
+ * Super admin mengubah data kepegawaian dasar. Email (identitas login), atasan, peran, status akun, dan data pribadi
+ * sengaja tidak termasuk. Perubahan dicatat di log audit dengan nilai sebelum dan sesudah.
+ */
+export async function updateEmployeeBasicInfo(employeeId: string, input: EmployeeBasicInput): Promise<{ error?: string }> {
+  const { isSuperAdmin, profile: admin } = await requireAdmin()
+  if (!isSuperAdmin) return { error: 'Hanya super admin yang dapat mengubah data karyawan' }
+  const db = getDb()
+
+  const [emp] = await db.select().from(schema.employees).where(eq(schema.employees.id, employeeId)).limit(1)
+  if (!emp) return { error: 'Karyawan tidak ditemukan' }
+
+  const clean = (v: unknown) => String(v ?? '').trim()
+  const name = clean(input.name)
+  const code = clean(input.employee_code) || null
+  const title = clean(input.title) || null
+  const dept = clean(input.dept) || null
+  const level = clean(input.level) || null
+  const status = clean(input.status) || null
+  const join = clean(input.join_date) || null
+  const phone = clean(input.phone) || null
+
+  if (!name) return { error: 'Nama wajib diisi' }
+  if (name.length > 120) return { error: 'Nama maksimal 120 karakter' }
+  if (code && code.length > 40) return { error: 'No. induk maksimal 40 karakter' }
+  if (title && title.length > 120) return { error: 'Jabatan maksimal 120 karakter' }
+  // Pilihan baku, kecuali nilai lama yang sudah ada di data (tidak dipaksa berubah)
+  const inList = (v: string | null, opts: { value: string }[], current: string | null) => !v || v === current || opts.some((o) => o.value === v)
+  if (!inList(dept, DEPT_OPTIONS, emp.dept)) return { error: 'Departemen tidak valid' }
+  if (!inList(level, LEVEL_OPTIONS, emp.level)) return { error: 'Level tidak valid' }
+  if (!inList(status, STATUS_OPTIONS, emp.status)) return { error: 'Status kepegawaian tidak valid' }
+  if (join && !parseIsoDate(join)) return { error: 'Format tanggal masuk tidak valid' }
+  if (phone && !PHONE_RE.test(phone)) return { error: 'Nomor telepon tidak valid' }
+
+  if (code) {
+    const [dup] = await db.select({ id: schema.employees.id }).from(schema.employees).where(and(eq(schema.employees.employee_code, code), ne(schema.employees.id, employeeId))).limit(1)
+    if (dup) return { error: 'No. induk sudah dipakai karyawan lain' }
+  }
+
+  const next = { name, employee_code: code, title, dept, level, status, join_date: join, phone }
+  const labels: Record<keyof typeof next, string> = { name: 'Nama', employee_code: 'No. Induk', title: 'Jabatan', dept: 'Departemen', level: 'Level', status: 'Status', join_date: 'Tanggal masuk', phone: 'Telepon' }
+  const changes: Record<string, { from: unknown; to: unknown }> = {}
+  for (const key of Object.keys(next) as (keyof typeof next)[]) {
+    // join_date bisa tersimpan dengan jam; bandingkan tanggalnya saja agar tidak dianggap berubah
+    const before = ((key === 'join_date' ? emp.join_date?.slice(0, 10) : emp[key]) ?? null) as string | null
+    if (before !== next[key]) changes[labels[key]] = { from: before, to: next[key] }
+  }
+  if (Object.keys(changes).length === 0) return { error: 'Tidak ada perubahan untuk disimpan' }
+
+  const now = new Date().toISOString()
+  const stmts: any[] = [
+    db.update(schema.employees).set({ ...next, tenure: join !== (emp.join_date?.slice(0, 10) ?? null) ? tenureFrom(join) : emp.tenure, updated_at: now }).where(eq(schema.employees.id, employeeId)),
+  ]
+  // Kolom teks lama `manager` menyimpan nama atasan; ikut diperbarui untuk bawahan langsung agar tidak usang
+  if (name !== emp.name) {
+    stmts.push(db.update(schema.employees).set({ manager: name }).where(eq(schema.employees.manager_id, employeeId)))
+  }
+  stmts.push(...(await auditStmt(db, { id: admin.id, name: admin.name, email: admin.email }, {
+    action: 'employee.update', targetType: 'employee', targetId: employeeId, targetLabel: emp.name || emp.email, details: { changes },
+  })))
+  await db.batch(stmts as any)
+
+  revalidatePath('/admin/employees')
+  revalidatePath('/admin/m/karyawan')
+  revalidatePath(`/admin/m/karyawan/${employeeId}`)
   return {}
 }
 
