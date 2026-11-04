@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BellRing, Loader2, Smartphone } from "lucide-react";
 import { getPushConfig, removePushSubscription, savePushSubscription, sendTestPush } from "@/app/employee/notifikasi/push-actions";
 import { b64uToBytes } from "@/lib/web-push";
-import { syncPushSubscription } from "@/lib/push-client";
+import { readPushDiagnostics, syncPushSubscription, type PushDiagnostics } from "@/lib/push-client";
 
 type Phase = "checking" | "hidden" | "needs-install" | "denied" | "off" | "on";
 
@@ -32,6 +32,8 @@ export default function PushToggle({ variant }: { variant: "card" | "row" }) {
   const [phase, setPhase] = useState<Phase>("checking");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [diag, setDiag] = useState<PushDiagnostics | null>(null);
+  const refreshDiag = useCallback(() => { readPushDiagnostics().then(setDiag).catch(() => {}); }, []);
 
   const detect = useCallback(async () => {
     const supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
@@ -52,6 +54,7 @@ export default function PushToggle({ variant }: { variant: "card" | "row" }) {
   }, []);
 
   useEffect(() => { detect().catch(() => setPhase("hidden")); }, [detect]);
+  useEffect(() => { if (variant === "row") refreshDiag(); }, [variant, refreshDiag, phase]);
 
   const enable = async () => {
     setBusy(true);
@@ -110,7 +113,10 @@ export default function PushToggle({ variant }: { variant: "card" | "row" }) {
     setMessage(null);
     try {
       const res = await sendTestPush();
-      setMessage(res.error ? { ok: false, text: res.error } : { ok: true, text: `Notifikasi uji dikirim ke ${res.sent} perangkat.` });
+      setMessage(res.error ? { ok: false, text: res.error } : { ok: true, text: `Notifikasi uji dikirim ke layanan push untuk ${res.sent} perangkat. Bila tidak muncul dalam beberapa detik, lihat Diagnostik di bawah.` });
+      // Beri waktu push sampai ke perangkat, lalu perbarui catatan penerimaan
+      setTimeout(refreshDiag, 3000);
+      setTimeout(refreshDiag, 8000);
     } catch {
       setMessage({ ok: false, text: "Gagal mengirim notifikasi uji." });
     } finally {
@@ -172,6 +178,25 @@ export default function PushToggle({ variant }: { variant: "card" | "row" }) {
         <button type="button" onClick={test} disabled={busy} className="self-start text-[12px] font-bold text-[var(--red)] disabled:opacity-60">Kirim notifikasi uji</button>
       )}
       {message && <p role="status" className={`text-[12px] font-medium ${message.ok ? "text-green-600" : "text-red-600"}`}>{message.text}</p>}
+      {diag && (
+        <details data-testid="push-diagnostics" className="text-[11px] text-ink-3" onToggle={(e) => { if ((e.target as HTMLDetailsElement).open) refreshDiag(); }}>
+          <summary className="cursor-pointer font-bold text-ink-2">Diagnostik</summary>
+          <ul className="mt-1.5 space-y-0.5 leading-snug">
+            <li>Izin notifikasi: <b>{diag.permission}</b></li>
+            <li>Mode: <b>{diag.installed ? "aplikasi terpasang" : "tab browser"}</b></li>
+            <li>Service worker: <b>{diag.swVersion ?? "belum aktif"}</b></li>
+            <li>Layanan push: <b>{diag.endpointHost ?? "belum berlangganan"}</b></li>
+            <li>
+              Push terakhir diterima perangkat:{" "}
+              <b>
+                {diag.last
+                  ? `${new Date(diag.last.at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}, notifikasi ${diag.last.shown ? "tampil" : "GAGAL tampil"}${diag.last.error ? ` (${diag.last.error})` : ""}`
+                  : "belum pernah"}
+              </b>
+            </li>
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

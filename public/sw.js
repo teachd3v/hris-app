@@ -1,9 +1,22 @@
+// Versi service worker (naik setiap perubahan perilaku push); ditampilkan di Diagnostik halaman Notifikasi.
+const SW_VERSION = 'push-2';
+const DIAG_CACHE = 'push-diag';
+
+// Catatan diagnostik untuk halaman Notifikasi: kapan push terakhir DITERIMA service worker dan apakah notifikasinya tampil.
+// Dibaca halaman lewat Cache API (satu origin). Tidak berisi isi pesan.
+async function putDiag(key, value) {
+  try {
+    const c = await caches.open(DIAG_CACHE);
+    await c.put(key, new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } }));
+  } catch (err) {}
+}
+
 self.addEventListener('install', (e) => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
-  e.waitUntil(self.clients.claim());
+  e.waitUntil(Promise.all([self.clients.claim(), putDiag('/__sw_version', SW_VERSION)]));
 });
 
 self.addEventListener('fetch', (e) => {
@@ -30,7 +43,16 @@ self.addEventListener('push', (event) => {
     options.tag = data.tag;
     options.renotify = true;
   }
-  event.waitUntil(self.registration.showNotification(data.title || 'Teach HRIS', options));
+  event.waitUntil((async () => {
+    const entry = { at: Date.now(), shown: false, version: SW_VERSION };
+    try {
+      await self.registration.showNotification(data.title || 'Teach HRIS', options);
+      entry.shown = true;
+    } catch (err) {
+      entry.error = String((err && err.message) || err);
+    }
+    await putDiag('/__push_last', entry);
+  })());
 });
 
 // Ketuk notifikasi: fokuskan jendela aplikasi yang sudah terbuka (lalu arahkan ke halaman terkait), atau buka yang baru.

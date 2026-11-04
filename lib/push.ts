@@ -65,7 +65,8 @@ export async function sendPushToEmployees(db: Db, employeeIds: string[], message
   await Promise.allSettled(subs.map(async (s) => {
     const host = new URL(s.endpoint).hostname
     try {
-      const res = await sendWebPush({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, payload, vapid)
+      // Urgency tinggi: pemberitahuan persetujuan perlu sampai segera, termasuk saat HP dalam mode hemat daya (Doze)
+      const res = await sendWebPush({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, payload, vapid, { urgency: 'high' })
       if (res.gone) {
         await db.delete(schema.push_subscriptions).where(eq(schema.push_subscriptions.endpoint, s.endpoint))
         summary.removed++
