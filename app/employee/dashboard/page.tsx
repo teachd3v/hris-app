@@ -4,6 +4,7 @@ import { employees, attendances } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
 import GridDashboardClient from './GridDashboardClient'
 import { hasSubordinates } from '@/lib/org-tree'
+import { countPendingForManager } from '@/lib/leave-approvals'
 
 export default async function EmployeeDashboardPage() {
   const { user } = await requireApprovedUser()
@@ -49,6 +50,7 @@ export default async function EmployeeDashboardPage() {
   return (
     <GridDashboardClient 
       hasTeam={employee ? await hasSubordinates(db, employee.id) : false}
+      pendingApprovals={employee ? await countPendingForManager(db, employee.id) : 0}
       isAdmin={Boolean((user as any).isAdmin)}
       userName={name} 
       userInitials={initials}

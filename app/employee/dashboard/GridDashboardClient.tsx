@@ -18,6 +18,7 @@ import { getDistanceFromLatLonInKm, OFFICE_LAT, OFFICE_LNG } from "@/lib/geo";
 
 export default function GridDashboardClient({
   hasTeam = false,
+  pendingApprovals = 0,
   isAdmin = false,
   userName,
   userInitials,
@@ -30,6 +31,7 @@ export default function GridDashboardClient({
   userPhoto?: string;
   userTitle: string;
   hasTeam?: boolean;
+  pendingApprovals?: number;
   isAdmin?: boolean;
   todayAttendance?: { 
     clockIn?: string; 
@@ -197,6 +199,19 @@ export default function GridDashboardClient({
                 <div className="text-[15px] font-black">Menu Admin</div>
                 <div className="text-[11px] text-white/80">Persetujuan cuti, reset password, data karyawan</div>
               </div>
+              <span className="text-xl">›</span>
+            </Link>
+          )}
+
+          {/* Persetujuan Cuti (hanya atasan, hanya HP): pengajuan bawahan langsung */}
+          {hasTeam && (
+            <Link href="/employee/persetujuan" className="md:hidden bg-gradient-to-br from-orange-500 to-orange-700 text-white rounded-[24px] p-4 flex items-center gap-4 shadow-[0_8px_24px_rgba(234,88,12,0.25)] active:scale-[0.99] transition-transform">
+              <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-[22px] shrink-0">✅</div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[15px] font-black">Persetujuan Cuti</div>
+                <div className="text-[11px] text-white/85">{pendingApprovals > 0 ? `${pendingApprovals} pengajuan bawahan menunggu Anda` : 'Pengajuan cuti bawahan Anda'}</div>
+              </div>
+              {pendingApprovals > 0 && <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white text-orange-700 shrink-0">{pendingApprovals}</span>}
               <span className="text-xl">›</span>
             </Link>
           )}

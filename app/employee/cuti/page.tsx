@@ -28,13 +28,11 @@ import {
   getTeamApprovedLeaves, 
   getManagerApprovals,
   getHolidays,
-  approveByManager,
   createLeaveRequest, 
   cancelLeaveRequest, 
   type LeaveRequest
 } from './actions';
 import { LEAVE_TYPES, HC_OVERRIDE_PREFIX, isHcOverride, calculateLeaveDuration, validateLeaveDates, holidaysInRange, type LeaveCategory } from '@/lib/leave';
-import ApprovalList from '@/components/cuti/ApprovalList';
 
 import { EMPLOYEE_MENU } from "@/lib/navigation";
 
@@ -328,17 +326,13 @@ export default function LeavePage() {
 
           {/* Persetujuan bawahan (khusus atasan) */}
           {managerApprovals.length > 0 && (
-            <div className="bg-white rounded-[24px] border border-orange-200 p-5">
-              <h3 className="text-[14px] font-black text-ink mb-3">Persetujuan Bawahan ({managerApprovals.length})</h3>
-              <ApprovalList
-                requests={managerApprovals}
-                onDecide={async (id, approve, notes) => {
-                  const res = await approveByManager(id, approve, notes);
-                  if (!res.error) await fetchData();
-                  return res;
-                }}
-              />
-            </div>
+            <Link href="/employee/persetujuan" className="bg-orange-50 rounded-[20px] border border-orange-200 p-4 flex items-center justify-between gap-3 active:scale-[0.99] transition-transform">
+              <div className="min-w-0">
+                <p className="text-[13px] font-black text-ink">{managerApprovals.length} pengajuan bawahan menunggu persetujuan Anda</p>
+                <p className="text-[11px] text-ink-3">Buka Persetujuan Cuti untuk menyetujui atau menolak.</p>
+              </div>
+              <ChevronRight size={18} className="text-orange-700 shrink-0" />
+            </Link>
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

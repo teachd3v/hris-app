@@ -11,7 +11,7 @@ import { isTopLeader } from '@/lib/org'
 import { loadHolidayDates } from '@/lib/holidays'
 import { auditStmt } from '@/lib/audit'
 import { LEAVE_TYPES, LEAVE_TYPE_KEYS, HC_OVERRIDE_PREFIX, calculateLeaveDuration, validateLeaveDates, parseIsoDate, type LeaveCategory } from '@/lib/leave'
-import { eq, and, desc, asc, inArray, or, lte, gte } from 'drizzle-orm'
+import { eq, and, desc, asc, inArray, or, lte, gte, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 export type LeaveStatus = 'PENDING_DIRECT_MANAGER' | 'PENDING_HC_ADMIN' | 'APPROVED' | 'REJECTED';
@@ -260,6 +260,26 @@ export async function getManagerApprovals(): Promise<LeaveRequest[]> {
     .innerJoin(schema.employees, eq(schema.leave_requests.employee_id, schema.employees.id))
     .where(and(eq(schema.employees.manager_id, manager.id), eq(schema.leave_requests.status, 'PENDING_DIRECT_MANAGER')))
     .orderBy(asc(schema.leave_requests.created_at))
+
+  return rows.map((r) => toRequest(r.req, { employee_name: r.name ?? undefined, employees: { name: r.name, dept: r.dept, title: r.title } } as any))
+}
+
+// 5b. Riwayat: pengajuan bawahan langsung yang sudah diputuskan atasan ini (atau diambil alih HC). Terbaru dulu.
+export async function getManagerHistory(): Promise<LeaveRequest[]> {
+  const { db, employee: manager } = await currentEmployee()
+
+  const rows = await db
+    .select({ req: schema.leave_requests, name: schema.employees.name, dept: schema.employees.dept, title: schema.employees.title })
+    .from(schema.leave_requests)
+    .innerJoin(schema.employees, eq(schema.leave_requests.employee_id, schema.employees.id))
+    .where(and(
+      eq(schema.employees.manager_id, manager.id),
+      inArray(schema.leave_requests.status, ['PENDING_HC_ADMIN', 'APPROVED', 'REJECTED']),
+      // diputuskan atasan ini, atau tanpa keputusan atasan sama sekali (diambil alih HC)
+      or(eq(schema.leave_requests.manager_approved_by, manager.id), isNull(schema.leave_requests.manager_approved_by)),
+    ))
+    .orderBy(desc(schema.leave_requests.updated_at))
+    .limit(100)
 
   return rows.map((r) => toRequest(r.req, { employee_name: r.name ?? undefined, employees: { name: r.name, dept: r.dept, title: r.title } } as any))
 }
