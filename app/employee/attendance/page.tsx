@@ -266,6 +266,9 @@ export default function AttendancePage() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return Promise.resolve(null);
     
+    // Foto dicerminkan agar sama dengan pratinjau
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
     ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
     
     return new Promise((resolve) => {
@@ -323,7 +326,9 @@ export default function AttendancePage() {
         readySinceRef.current = null;
         return;
       }
-      setFaceBox(mapBoxToView(best, video.videoWidth, video.videoHeight, video.clientWidth, video.clientHeight, 'cover'));
+      const box = mapBoxToView(best, video.videoWidth, video.videoHeight, video.clientWidth, video.clientHeight, 'cover');
+      // Video dicerminkan, jadi kotak ikut dibalik kiri-kanan
+      setFaceBox({ ...box, x: video.clientWidth - box.x - box.w });
       const ready = isFaceReady(best, video.videoWidth, video.videoHeight);
       if (!ready) {
         setCaptureIn(null);
@@ -492,6 +497,7 @@ export default function AttendancePage() {
             autoPlay 
             playsInline 
             muted 
+            style={{ transform: 'scaleX(-1)' }} /* cermin seperti kamera selfie bawaan */
             className={`w-full h-full object-cover transition-opacity duration-500 ${streamActive ? 'opacity-100' : 'opacity-0'}`}
           />
           <canvas ref={canvasRef} className="hidden" />
