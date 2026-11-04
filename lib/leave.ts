@@ -57,6 +57,16 @@ export const HOLIDAY_TYPES = [
   { key: 'JOINT', label: 'Cuti Bersama' },
 ] as const;
 
+/** Semua tanggal dari start sampai end (inklusif; end kosong = satu tanggal), maks. 60 hari. null bila tidak valid. */
+export function expandDateRange(start: string, end: string): string[] | null {
+  const s = parseIsoDate(start);
+  const e = parseIsoDate(end || start);
+  if (!s || !e || e < s) return null;
+  const out: string[] = [];
+  for (const d = new Date(s); d <= e; d.setUTCDate(d.getUTCDate() + 1)) out.push(d.toISOString().slice(0, 10));
+  return out.length > 60 ? null : out;
+}
+
 const isWeekend = (d: Date) => d.getUTCDay() === 0 || d.getUTCDay() === 6;
 const isoOf = (d: Date) => d.toISOString().slice(0, 10);
 /** Hari non-kerja: Sabtu, Minggu, atau tanggal yang terdaftar sebagai hari libur. */
