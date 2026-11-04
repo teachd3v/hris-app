@@ -36,6 +36,7 @@ export default function AttendancePage() {
   const [countdown, setCountdown] = useState(5);
   const [justClockedIn, setJustClockedIn] = useState(false);
   const [cameraError, setCameraError] = useState<string>('');
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   // Alur: detecting (cari wajah) -> countdown 3 detik -> review (konfirmasi foto) -> kirim
   const [phase, setPhase] = useState<'detecting' | 'review'>('detecting');
@@ -120,13 +121,15 @@ export default function AttendancePage() {
       
       let stream: MediaStream;
       try {
-        // Minta rasio sesuai layar agar gambar tidak terpotong/terlihat ter-zoom di HP (potret)
+        // Minta rasio 3:4 (potret), yang di kebanyakan HP adalah bidang pandang penuh sensor kamera depan.
+        // Rasio 16:9 atau mengikuti layar 9:20 biasanya memotong sensor sehingga wajah terlihat lebih besar.
+        const portrait = window.innerHeight >= window.innerWidth;
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: 'user',
-            width: { ideal: 1280 },
-            height: { ideal: 1280 },
-            aspectRatio: { ideal: window.innerWidth / window.innerHeight },
+            width: { ideal: portrait ? 960 : 1280 },
+            height: { ideal: portrait ? 1280 : 960 },
+            aspectRatio: { ideal: portrait ? 3 / 4 : 4 / 3 },
           },
         });
       } catch (firstErr) {
@@ -134,6 +137,21 @@ export default function AttendancePage() {
         stream = await navigator.mediaDevices.getUserMedia({ 
           video: true 
         });
+      }
+
+      // Bila kamera mendukung zoom, pastikan di posisi paling lebar (1x)
+      try {
+        const track = stream.getVideoTracks()[0];
+        const zoom = (track.getCapabilities?.() as any)?.zoom;
+        if (zoom && typeof zoom.min === 'number') {
+          await track.applyConstraints({ advanced: [{ zoom: zoom.min } as any] });
+        }
+        if (new URLSearchParams(window.location.search).has('debug')) {
+          const st = track.getSettings() as any;
+          setDebugInfo(`${st.width}x${st.height} zoom:${st.zoom ?? '-'} ${JSON.stringify((track.getCapabilities?.() as any)?.zoom ?? null)}`);
+        }
+      } catch (e) {
+        console.warn('Zoom kamera tidak dapat diatur', e);
       }
 
       activeStreamRef.current = stream;
@@ -298,7 +316,7 @@ export default function AttendancePage() {
         readySinceRef.current = null;
         return;
       }
-      setFaceBox(mapBoxToView(best, video.videoWidth, video.videoHeight, video.clientWidth, video.clientHeight));
+      setFaceBox(mapBoxToView(best, video.videoWidth, video.videoHeight, video.clientWidth, video.clientHeight, 'contain'));
       const ready = isFaceReady(best, video.videoWidth, video.videoHeight);
       if (!ready) {
         setCaptureIn(null);
@@ -463,12 +481,16 @@ export default function AttendancePage() {
             autoPlay 
             playsInline 
             muted 
-            className={`w-full h-full object-cover transition-opacity duration-500 ${streamActive ? 'opacity-100' : 'opacity-0'}`}
+            className={`w-full h-full object-contain transition-opacity duration-500 ${streamActive ? 'opacity-100' : 'opacity-0'}`}
           />
           <canvas ref={canvasRef} className="hidden" />
           
           {/* Dark gradient overlay so text is readable over camera */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/80 pointer-events-none" />
+
+          {debugInfo && (
+            <div className="absolute left-2 top-1/2 z-10 text-[10px] text-yellow-300 bg-black/60 px-2 py-1 rounded">{debugInfo}</div>
+          )}
 
           {/* Kotak kuning mengikuti wajah secara real-time */}
           {faceBox && phase === 'detecting' && (
@@ -761,7 +783,7 @@ export default function AttendancePage() {
       {/* Layar konfirmasi foto (HP): Ulangi atau Setujui */}
       {captured && phase === 'review' && (
         <div data-testid="review-screen" className="md:hidden fixed inset-0 z-[60] bg-black flex flex-col">
-          <img src={captured.url} alt="Hasil foto presensi" className="absolute inset-0 w-full h-full object-cover" />
+          <img src={captured.url} alt="Hasil foto presensi" className="absolute inset-0 w-full h-full object-contain" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/80 pointer-events-none" />
           <div className="relative z-10 flex flex-col justify-between h-full p-6">
             <div className="mt-2">
