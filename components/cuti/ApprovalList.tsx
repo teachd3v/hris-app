@@ -6,15 +6,30 @@ import type { LeaveRequest } from "@/app/employee/cuti/actions";
 
 const fmt = (d: string) => new Date(d).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 
-/** Daftar pengajuan menunggu persetujuan dengan catatan + tombol Setujui/Tolak. Dipakai atasan dan HC Admin. */
+const waitingDays = (iso: string) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
+
+/**
+ * Daftar pengajuan menunggu persetujuan dengan catatan + tombol Setujui/Tolak. Dipakai atasan dan HC Admin.
+ * `requireNotes` dipakai saat HC mengambil alih (alasan wajib); `takeover` menampilkan siapa atasan yang menahan dan sudah berapa lama.
+ */
 export default function ApprovalList({
   requests,
   onDecide,
   emptyText = "Tidak ada pengajuan yang menunggu.",
+  requireNotes = false,
+  notesPlaceholder = "Catatan (opsional)",
+  approveText = "Setujui",
+  rejectText = "Tolak",
+  takeover = false,
 }: {
   requests: LeaveRequest[];
   onDecide: (id: string, approve: boolean, notes: string) => Promise<{ error?: string }>;
   emptyText?: string;
+  requireNotes?: boolean;
+  notesPlaceholder?: string;
+  approveText?: string;
+  rejectText?: string;
+  takeover?: boolean;
 }) {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -51,6 +66,11 @@ export default function ApprovalList({
             </p>
             {(r.start_time || r.end_time) && <p className="text-[11px] text-[var(--red)] font-bold">Jam: {r.start_time || "--:--"} - {r.end_time || "--:--"}</p>}
             <p className="text-[12px] text-ink-2">Alasan: &ldquo;{r.reason}&rdquo;</p>
+            {takeover && (
+              <p className="text-[11px] font-bold text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-2.5 py-1.5">
+                Menunggu atasan{r.manager_name ? `: ${r.manager_name}` : ""} · {waitingDays(r.created_at)} hari
+              </p>
+            )}
             {r.manager_notes && <p className="text-[11px] text-ink-3">Catatan atasan: &ldquo;{r.manager_notes}&rdquo;</p>}
             {r.attachment_url && (
               <a href={r.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-blue-600 font-bold hover:underline">
@@ -59,18 +79,18 @@ export default function ApprovalList({
             )}
             <input
               maxLength={500}
-              placeholder="Catatan (opsional)"
+              placeholder={notesPlaceholder}
               value={notes[r.id] ?? ""}
               onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))}
               className="w-full h-10 px-3 rounded-xl border border-line-2 bg-white text-[12px] text-ink outline-none focus:border-ink"
             />
             {error[r.id] && <p role="alert" className="text-[11px] font-medium text-red-600">{error[r.id]}</p>}
             <div className="flex gap-2 justify-end">
-              <button type="button" disabled={busy !== null} onClick={() => decide(r.id, false)} className="px-4 py-2 rounded-xl text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 flex items-center gap-1.5 disabled:opacity-50">
-                {busy === `${r.id}:false` ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />} Tolak
+              <button type="button" disabled={busy !== null || (requireNotes && !(notes[r.id] ?? "").trim())} onClick={() => decide(r.id, false)} className="px-4 py-2 rounded-xl text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 flex items-center gap-1.5 disabled:opacity-50">
+                {busy === `${r.id}:false` ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />} {rejectText}
               </button>
-              <button type="button" disabled={busy !== null} onClick={() => decide(r.id, true)} className="px-4 py-2 rounded-xl text-[11px] font-bold text-white bg-green-600 hover:bg-green-700 flex items-center gap-1.5 disabled:opacity-50">
-                {busy === `${r.id}:true` ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Setujui
+              <button type="button" disabled={busy !== null || (requireNotes && !(notes[r.id] ?? "").trim())} onClick={() => decide(r.id, true)} className="px-4 py-2 rounded-xl text-[11px] font-bold text-white bg-green-600 hover:bg-green-700 flex items-center gap-1.5 disabled:opacity-50">
+                {busy === `${r.id}:true` ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} {approveText}
               </button>
             </div>
           </div>

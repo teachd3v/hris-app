@@ -10,7 +10,7 @@ import { getLeaveBalances, type LeaveBalance } from '@/lib/leave-balance'
 import { isTopLeader } from '@/lib/org'
 import { loadHolidayDates } from '@/lib/holidays'
 import { auditStmt } from '@/lib/audit'
-import { LEAVE_TYPES, LEAVE_TYPE_KEYS, calculateLeaveDuration, validateLeaveDates, parseIsoDate, type LeaveCategory } from '@/lib/leave'
+import { LEAVE_TYPES, LEAVE_TYPE_KEYS, HC_OVERRIDE_PREFIX, calculateLeaveDuration, validateLeaveDates, parseIsoDate, type LeaveCategory } from '@/lib/leave'
 import { eq, and, desc, asc, inArray, or, lte, gte } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
@@ -303,21 +303,49 @@ export async function getHCAdminApprovals(): Promise<LeaveRequest[]> {
   return listAdminRequests({ pendingOnly: true })
 }
 
-/** Daftar pengajuan untuk admin (menunggu HC, atau seluruh riwayat). */
-export async function listAdminRequests(opts: { pendingOnly?: boolean } = {}): Promise<LeaveRequest[]> {
+/**
+ * Daftar pengajuan untuk admin: menunggu HC (`pendingOnly`), status tertentu (`status`, mis. tertahan di atasan),
+ * atau seluruh riwayat. Pengajuan yang menunggu atasan membawa `manager_name` agar HC tahu siapa yang menahan.
+ */
+export async function listAdminRequests(opts: { pendingOnly?: boolean; status?: LeaveStatus } = {}): Promise<LeaveRequest[]> {
   const admin = await getAdminContext()
   if (!admin) throw new Error('Unauthorized')
   const db = getDb()
 
+  const status = opts.status ?? (opts.pendingOnly ? 'PENDING_HC_ADMIN' : undefined)
   const rows = await db
-    .select({ req: schema.leave_requests, name: schema.employees.name, dept: schema.employees.dept, title: schema.employees.title })
+    .select({ req: schema.leave_requests, name: schema.employees.name, dept: schema.employees.dept, title: schema.employees.title, managerId: schema.employees.manager_id })
     .from(schema.leave_requests)
     .leftJoin(schema.employees, eq(schema.leave_requests.employee_id, schema.employees.id))
-    .where(opts.pendingOnly ? eq(schema.leave_requests.status, 'PENDING_HC_ADMIN') : undefined)
-    .orderBy(opts.pendingOnly ? asc(schema.leave_requests.created_at) : desc(schema.leave_requests.created_at))
+    .where(status ? eq(schema.leave_requests.status, status) : undefined)
+    .orderBy(status ? asc(schema.leave_requests.created_at) : desc(schema.leave_requests.created_at))
     .limit(500)
 
-  return rows.map((r) => toRequest(r.req, { employee_name: r.name ?? 'Unknown', employees: { name: r.name, dept: r.dept, title: r.title } } as any))
+  const managerIds = [...new Set(rows.filter((r) => r.req.status === 'PENDING_DIRECT_MANAGER' && r.managerId).map((r) => r.managerId as string))]
+  const managerNames = new Map<string, string | null>()
+  if (managerIds.length > 0) {
+    const ms = await db.select({ id: schema.employees.id, name: schema.employees.name }).from(schema.employees).where(inArray(schema.employees.id, managerIds))
+    for (const m of ms) managerNames.set(m.id, m.name)
+  }
+
+  return rows.map((r) => toRequest(r.req, {
+    employee_name: r.name ?? 'Unknown',
+    manager_name: r.req.status === 'PENDING_DIRECT_MANAGER' && r.managerId ? managerNames.get(r.managerId) ?? null : undefined,
+    employees: { name: r.name, dept: r.dept, title: r.title },
+  } as any))
+}
+
+/** Kuota karyawan pengaju masih cukup untuk menyetujui pengajuan ini? Mengembalikan pesan error atau null. */
+async function quotaErrorForApproval(db: ReturnType<typeof getDb>, request: typeof schema.leave_requests.$inferSelect): Promise<string | null> {
+  const [owner] = await db.select().from(schema.employees).where(eq(schema.employees.id, request.employee_id ?? '')).limit(1)
+  if (!owner) return 'Karyawan pengaju tidak ditemukan'
+  const balances = await getLeaveBalances(db, owner, Number((request.start_date ?? '').slice(0, 4)))
+  const b = balances.find((x) => x.type === request.leave_type)
+  // `remaining` sudah memotong pengajuan ini (statusnya pending), jadi cukup cek tidak negatif
+  if (b && b.remaining !== null && b.remaining < 0) {
+    return `Kuota ${request.leave_type} karyawan tidak mencukupi. Ubah jatah di menu Kuota Cuti atau tolak pengajuan.`
+  }
+  return null
 }
 
 // 8. Persetujuan / penolakan final oleh HC Admin
@@ -334,14 +362,8 @@ export async function approveByHC(id: string, isApproved: boolean, notes: string
 
   if (isApproved) {
     // Pastikan kuota masih cukup saat disetujui (jatah bisa berubah sejak pengajuan dibuat)
-    const [owner] = await db.select().from(schema.employees).where(eq(schema.employees.id, request.employee_id ?? '')).limit(1)
-    if (!owner) return { error: 'Karyawan pengaju tidak ditemukan' }
-    const balances = await getLeaveBalances(db, owner, Number((request.start_date ?? '').slice(0, 4)))
-    const b = balances.find((x) => x.type === request.leave_type)
-    // `remaining` sudah memotong pengajuan ini (statusnya pending), jadi cukup cek tidak negatif
-    if (b && b.remaining !== null && b.remaining < 0) {
-      return { error: `Kuota ${request.leave_type} karyawan tidak mencukupi. Ubah jatah di menu Kuota Cuti atau tolak pengajuan.` }
-    }
+    const quotaError = await quotaErrorForApproval(db, request)
+    if (quotaError) return { error: quotaError }
   }
 
   const [requesterHc] = await db.select({ name: schema.employees.name }).from(schema.employees).where(eq(schema.employees.id, request.employee_id ?? '')).limit(1)
@@ -356,6 +378,46 @@ export async function approveByHC(id: string, isApproved: boolean, notes: string
     ...(await auditStmt(db, { id: admin.emp.id, name: admin.emp.name, email: admin.emp.email }, {
       action: 'leave.hc_decision', targetType: 'leave_request', targetId: id, targetLabel: requesterHc?.name ?? null,
       details: { decision: isApproved ? 'setuju' : 'tolak', leave_type: request.leave_type, start: request.start_date, end: request.end_date, days: request.total_days, notes: cleanNotes || undefined },
+    })),
+  ] as any)
+
+  revalidatePath('/employee/cuti')
+  revalidatePath('/admin/leave-requests')
+  return {}
+}
+
+// 8b. HC mengambil alih pengajuan yang tertahan di atasan: keputusan HC berlaku final (langsung APPROVED / REJECTED).
+// Alasan wajib diisi dan tercatat di log audit. Atasan yang bersamaan memproses tidak bisa menimpa (update bersyarat).
+export async function overrideByHC(id: string, isApproved: boolean, reason: string): Promise<ActionResult> {
+  const admin = await getAdminContext()
+  if (!admin) return { error: 'Unauthorized' }
+  const db = getDb()
+  const cleanReason = (reason ?? '').trim().slice(0, NOTES_MAX)
+  if (!cleanReason) return { error: 'Alasan ambil alih wajib diisi' }
+
+  const [request] = await db.select().from(schema.leave_requests).where(eq(schema.leave_requests.id, id)).limit(1)
+  if (!request) return { error: 'Pengajuan tidak ditemukan' }
+  if (request.status !== 'PENDING_DIRECT_MANAGER') return { error: 'Pengajuan ini sudah diproses atau tidak lagi menunggu atasan' }
+  if (request.employee_id === admin.emp.id) return { error: 'Anda tidak dapat menyetujui pengajuan sendiri' }
+
+  if (isApproved) {
+    const quotaError = await quotaErrorForApproval(db, request)
+    if (quotaError) return { error: quotaError }
+  }
+
+  const [requester] = await db.select({ name: schema.employees.name, manager_id: schema.employees.manager_id }).from(schema.employees).where(eq(schema.employees.id, request.employee_id ?? '')).limit(1)
+  const now = new Date().toISOString()
+  await db.batch([
+    db.update(schema.leave_requests).set({
+      status: isApproved ? 'APPROVED' : 'REJECTED',
+      hc_approved_by: admin.emp.id,
+      hc_approved_at: now,
+      hc_notes: `${HC_OVERRIDE_PREFIX}${cleanReason}`,
+      updated_at: now,
+    }).where(and(eq(schema.leave_requests.id, id), eq(schema.leave_requests.status, 'PENDING_DIRECT_MANAGER'))),
+    ...(await auditStmt(db, { id: admin.emp.id, name: admin.emp.name, email: admin.emp.email }, {
+      action: 'leave.hc_override', targetType: 'leave_request', targetId: id, targetLabel: requester?.name ?? null,
+      details: { decision: isApproved ? 'setuju' : 'tolak', leave_type: request.leave_type, start: request.start_date, end: request.end_date, days: request.total_days, manager_id: requester?.manager_id ?? undefined, reason: cleanReason },
     })),
   ] as any)
 

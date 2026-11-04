@@ -33,7 +33,7 @@ import {
   cancelLeaveRequest, 
   type LeaveRequest
 } from './actions';
-import { LEAVE_TYPES, calculateLeaveDuration, validateLeaveDates, holidaysInRange, type LeaveCategory } from '@/lib/leave';
+import { LEAVE_TYPES, HC_OVERRIDE_PREFIX, isHcOverride, calculateLeaveDuration, validateLeaveDates, holidaysInRange, type LeaveCategory } from '@/lib/leave';
 import ApprovalList from '@/components/cuti/ApprovalList';
 
 import { EMPLOYEE_MENU } from "@/lib/navigation";
@@ -383,6 +383,12 @@ export default function LeavePage() {
                             <a href={req.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-blue-600 font-bold hover:underline">
                               <FileText size={12} /> Lihat Lampiran Dokumen
                             </a>
+                          )}
+
+                          {req.status === 'APPROVED' && isHcOverride(req) && (
+                            <div className="bg-blue-50/50 p-2.5 rounded-xl border border-blue-100 text-[11px] text-blue-800 mt-2">
+                              <p>Disetujui langsung oleh HC (menggantikan atasan). {req.hc_notes?.replace(HC_OVERRIDE_PREFIX, 'Alasan: ')}</p>
+                            </div>
                           )}
 
                           {/* Approval Notes Display */}

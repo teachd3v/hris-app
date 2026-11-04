@@ -9,6 +9,7 @@ export const AUDIT_ACTION_LABELS = {
   'manager.set': 'Ubah atasan',
   'leave.manager_decision': 'Keputusan atasan (cuti)',
   'leave.hc_decision': 'Keputusan HC (cuti)',
+  'leave.hc_override': 'Ambil alih HC (cuti tertahan di atasan)',
   'quota.update': 'Ubah kuota cuti',
   'holiday.save': 'Simpan hari libur',
   'holiday.delete': 'Hapus hari libur',

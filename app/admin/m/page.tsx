@@ -11,13 +11,14 @@ export const dynamic = "force-dynamic";
 export default async function Page() {
   const { user, profile } = await requireAdmin();
   const db = getDb();
-  const [[pending], [total]] = await Promise.all([
+  const [[pending], [stalled], [total]] = await Promise.all([
     db.select({ n: count() }).from(schema.leave_requests).where(eq(schema.leave_requests.status, "PENDING_HC_ADMIN")),
+    db.select({ n: count() }).from(schema.leave_requests).where(eq(schema.leave_requests.status, "PENDING_DIRECT_MANAGER")),
     db.select({ n: count() }).from(schema.employees),
   ]);
 
   const items = [
-    { href: "/admin/m/cuti", icon: "📅", title: "Persetujuan Cuti (HC)", desc: "Setujui atau tolak pengajuan", badge: pending.n > 0 ? `${pending.n} menunggu` : null },
+    { href: "/admin/m/cuti", icon: "📅", title: "Persetujuan Cuti (HC)", desc: stalled.n > 0 ? `Setujui atau tolak pengajuan · ${stalled.n} tertahan di atasan` : "Setujui atau tolak pengajuan", badge: pending.n > 0 ? `${pending.n} menunggu` : null },
     { href: "/admin/m/karyawan", icon: "👥", title: "Karyawan", desc: `Lihat data & reset password (${total.n} karyawan)`, badge: null },
   ];
 
