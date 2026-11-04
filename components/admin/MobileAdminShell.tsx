@@ -12,6 +12,7 @@ export default function MobileAdminShell({
   backLabel,
   userName,
   userPhoto,
+  action,
   children,
 }: {
   title: string;
@@ -20,10 +21,11 @@ export default function MobileAdminShell({
   backLabel: string;
   userName: string;
   userPhoto?: string;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <MobileHeroShell role="Admin" menuSections={ADMIN_MENU} eyebrow="Admin" title={title} subtitle={subtitle} backHref={backHref} backLabel={backLabel} userName={userName} userPhoto={userPhoto}>
+    <MobileHeroShell role="Admin" menuSections={ADMIN_MENU} eyebrow="Admin" title={title} subtitle={subtitle} backHref={backHref} backLabel={backLabel} userName={userName} userPhoto={userPhoto} action={action}>
       {children}
     </MobileHeroShell>
   );

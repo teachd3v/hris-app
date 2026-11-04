@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { InputField, SelectField } from "./fields";
+import { DEPT_OPTIONS, LEVEL_OPTIONS, STATUS_OPTIONS } from "@/lib/employment-options";
 
 export interface EmploymentInfoFormValues {
   employeeCode: string;
@@ -20,31 +21,6 @@ interface Props {
   defaultValues: EmploymentInfoFormValues;
   onSubmit: (values: EmploymentInfoFormValues) => void;
 }
-
-const DEPT_OPTIONS = [
-  { value: "IDEAS", label: "IDEAS" },
-  { value: "SGLT", label: "SGLT" },
-  { value: "BI", label: "BI" },
-  { value: "Budaya", label: "Budaya" },
-  { value: "REMO", label: "REMO" },
-  { value: "LSP", label: "LSP" },
-];
-
-const LEVEL_OPTIONS = [
-  { value: "Direktur", label: "Direktur" },
-  { value: "Manajer", label: "Manajer" },
-  { value: "Supervisor", label: "Supervisor" },
-  { value: "Koordinator", label: "Koordinator" },
-  { value: "Staff", label: "Staff" },
-  { value: "Pelaksana", label: "Pelaksana" },
-];
-
-const STATUS_OPTIONS = [
-  { value: "Kontrak", label: "Kontrak" },
-  { value: "Tetap", label: "Tetap" },
-  { value: "Probation", label: "Probation" },
-  { value: "Magang", label: "Magang" },
-];
 
 export default function EmploymentInfoForm({ formId, defaultValues, onSubmit }: Props) {
   const { register, handleSubmit, watch, setValue } = useForm<EmploymentInfoFormValues>({ defaultValues });

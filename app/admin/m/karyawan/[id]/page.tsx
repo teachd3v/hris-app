@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Pencil } from "lucide-react";
 import { eq } from "drizzle-orm";
 import MobileAdminShell from "@/components/admin/MobileAdminShell";
 import ResetPasswordButton from "@/components/admin/ResetPasswordButton";
@@ -45,7 +47,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   ];
 
   return (
-    <MobileAdminShell title={emp.name || "Karyawan"} subtitle={[emp.title, emp.dept].filter(Boolean).join(" • ") || undefined} backHref="/admin/m/karyawan" backLabel="Kembali ke daftar karyawan" userName={profile?.name || user.email?.split("@")[0] || "Admin"} userPhoto={profile?.photo_url ?? undefined}>
+    <MobileAdminShell title={emp.name || "Karyawan"} subtitle={[emp.title, emp.dept].filter(Boolean).join(" • ") || undefined} backHref="/admin/m/karyawan" backLabel="Kembali ke daftar karyawan" userName={profile?.name || user.email?.split("@")[0] || "Admin"} userPhoto={profile?.photo_url ?? undefined}
+      action={isSuperAdmin ? (
+        <Link href={`/admin/m/karyawan/${emp.id}/edit`} aria-label="Ubah data karyawan" className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-full"><Pencil size={18} strokeWidth={2.5} /></Link>
+      ) : undefined}
+    >
       <div className="bg-white rounded-[20px] border border-[var(--line)] divide-y divide-line-2 overflow-hidden">
         {fields.map(([label, value]) => (
           <div key={label} className="px-4 py-3 flex items-start justify-between gap-4">
