@@ -11,6 +11,8 @@ export interface MobileEmployee {
   dept: string | null;
   email: string | null;
   role: string | null;
+  /** Super Admin / Admin / Karyawan (dihitung di server). */
+  accessLabel: "Super Admin" | "Admin" | "Karyawan";
   approval_status: string | null;
 }
 
@@ -33,7 +35,8 @@ export default function MobileEmployeeList({ employees }: { employees: MobileEmp
               <div className="text-[14px] font-extrabold text-ink truncate">{e.name || e.email}</div>
               <div className="text-[11px] text-ink-3 truncate">{[e.title, e.dept].filter(Boolean).join(" • ") || e.email}</div>
               <div className="flex gap-1.5 mt-1">
-                {e.role === "Admin" && <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase bg-red-50 text-red-600 border border-red-100">Admin</span>}
+                {e.accessLabel === "Super Admin" && <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase bg-purple-50 text-purple-700 border border-purple-100">Super Admin</span>}
+                {e.accessLabel === "Admin" && <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase bg-red-50 text-red-600 border border-red-100">Admin</span>}
                 {e.approval_status && e.approval_status !== "Approved" && <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase bg-amber-50 text-amber-700 border border-amber-100">{e.approval_status}</span>}
               </div>
             </div>

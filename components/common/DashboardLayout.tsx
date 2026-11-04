@@ -89,7 +89,7 @@ export default function DashboardLayout({
   return (
     <div className={`flex flex-col min-h-screen bg-[var(--bg)] ${noPadding ? 'pb-24 md:pb-5' : 'gap-4 p-5 md:p-5 pb-24 md:pb-5'}`}>
       <div className={`${hideTopbar ? "hidden md:block" : "block"} ${noPadding ? "md:px-5 md:pt-5" : ""}`}>
-        <Topbar role={role} userName={userName} initials={userInitials} photoUrl={userPhoto} showMobileHome={showMobileHome} />
+        <Topbar role={role} roleLabel={role === "Admin" && isSuperAdmin ? "Super Admin" : undefined} userName={userName} initials={userInitials} photoUrl={userPhoto} showMobileHome={showMobileHome} />
       </div>
       
       <div className={`sidebar-layout ${noPadding ? 'p-0 md:p-5' : ''}`}>
@@ -101,7 +101,7 @@ export default function DashboardLayout({
             locked={sidebarLocked}
             user={{ 
               name: userName, 
-              role: role === "Admin" ? "Administrator" : "Employee", 
+              role: role === "Admin" ? (isSuperAdmin ? "Super Admin" : "Administrator") : "Employee", 
               initials: userInitials,
               photoUrl: userPhoto 
             }}

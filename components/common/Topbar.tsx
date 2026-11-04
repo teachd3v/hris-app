@@ -10,12 +10,15 @@ import { getSession, signOut } from "next-auth/react";
 
 export default function Topbar({ 
   role = "Karyawan", 
+  roleLabel,
   userName = "User", 
   initials = "U",
   photoUrl,
   showMobileHome = false
 }: { 
   role?: string; 
+  /** Teks yang ditampilkan di bawah nama (mis. "Super Admin"); bila kosong memakai `role`. */
+  roleLabel?: string; 
   userName?: string; 
   initials?: string;
   photoUrl?: string;
@@ -87,7 +90,7 @@ export default function Topbar({
             )}
           </div>
           <div className="topbar-profile-text">
-            <div className="topbar-profile-label">{role}</div>
+            <div className="topbar-profile-label">{roleLabel ?? role}</div>
             <div className="topbar-profile-name">{userName}</div>
           </div>
         </div>

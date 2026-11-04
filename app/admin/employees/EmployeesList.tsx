@@ -6,6 +6,7 @@ import * as schema from '@/lib/db/schema'
 import { inArray } from 'drizzle-orm'
 
 import { ADMIN_MENU } from "@/lib/navigation";
+import { accessLabelOf } from "@/lib/admins";
 
 export default async function AdminEmployeesPage() {
   const { user, profile, isSuperAdmin } = await requireAdmin();
@@ -81,6 +82,7 @@ export default async function AdminEmployeesPage() {
 
     return {
       ...emp,
+      accessLabel: accessLabelOf(emp),
       fullName: emp.name,
       position: emp.title || 'Belum diatur',
       department: emp.dept || 'Umum',
