@@ -68,7 +68,6 @@ export default function MobileQuotaEditor({ employeeId, year }: { employeeId: st
 
   return (
     <>
-      <p className="text-[11px] text-ink-3 px-1 leading-relaxed">Isi angka untuk jatah khusus (kelipatan 0,5 hari). Kosongkan untuk memakai jatah bawaan.</p>
       <div className="flex flex-col gap-2.5">
         {balances.map((b) => {
           const raw = (inputs[b.type] ?? "").trim();
