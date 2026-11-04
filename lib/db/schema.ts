@@ -282,6 +282,21 @@ export const notifications = sqliteTable("notifications", {
   entityIdx: index("notifications_entity_idx").on(t.entity_id),
 }));
 
+// Langganan Web Push per perangkat (satu karyawan bisa punya beberapa HP/komputer). Baris dihapus bila perangkat
+// berhenti berlangganan atau push service menjawab 404/410 (langganan sudah mati).
+export const push_subscriptions = sqliteTable("push_subscriptions", {
+  id: text("id").primaryKey(),
+  employee_id: text("employee_id").notNull(),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(), // kunci publik perangkat (base64url)
+  auth: text("auth").notNull(), // rahasia autentikasi perangkat (base64url)
+  user_agent: text("user_agent"),
+  created_at: text("created_at").notNull(),
+}, (t) => ({
+  endpointUnique: uniqueIndex("push_subscriptions_endpoint_unique").on(t.endpoint),
+  employeeIdx: index("push_subscriptions_employee_idx").on(t.employee_id),
+}));
+
 // Hari libur: tidak dihitung sebagai hari kerja pada pengajuan cuti. Satu baris per tanggal.
 export const holidays = sqliteTable("holidays", {
   date: text("date").primaryKey(), // YYYY-MM-DD

@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   title: "TEACH HRIS - Human Resource Information System",
   description: "Employee CV Management & Catalog System",
   manifest: "/manifest.json",
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export default function RootLayout({
