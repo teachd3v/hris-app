@@ -90,6 +90,21 @@ export function calculateLeaveDuration(type: LeaveCategory, start: string, end: 
   return days;
 }
 
+/**
+ * Tanggal selesai paling lambat agar durasi (hari kerja) tidak melebihi sisa jatah, dihitung dari tanggal mulai.
+ * null bila sisa jatah kurang dari 1 hari kerja atau tanggal mulai tidak valid.
+ */
+export function lastDateWithinQuota(start: string, remaining: number, holidays?: HolidayDates): string | null {
+  const s = parseIsoDate(start);
+  const days = Math.floor(remaining);
+  if (!s || !(days >= 1) || days > 366) return null;
+  let counted = 0;
+  for (const d = new Date(s); ; d.setUTCDate(d.getUTCDate() + 1)) {
+    if (!isOffDay(d, holidays)) counted++;
+    if (counted === days) return isoOf(d);
+  }
+}
+
 /** Validasi tanggal pengajuan; mengembalikan pesan error atau null. Dipakai klien dan server. */
 export function validateLeaveDates(type: LeaveCategory, start: string, end: string, holidays?: HolidayDates): string | null {
   const s = parseIsoDate(start);

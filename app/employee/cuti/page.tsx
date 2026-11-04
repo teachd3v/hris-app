@@ -28,11 +28,13 @@ import {
   getTeamApprovedLeaves, 
   getManagerApprovals,
   getHolidays,
+  getMyLeaveBalances,
   createLeaveRequest, 
   cancelLeaveRequest, 
   type LeaveRequest
 } from './actions';
-import { LEAVE_TYPES, HC_OVERRIDE_PREFIX, isHcOverride, calculateLeaveDuration, validateLeaveDates, holidaysInRange, type LeaveCategory } from '@/lib/leave';
+import { LEAVE_TYPES, HC_OVERRIDE_PREFIX, isHcOverride, calculateLeaveDuration, validateLeaveDates, holidaysInRange, lastDateWithinQuota, type LeaveCategory } from '@/lib/leave';
+import type { LeaveBalance } from '@/lib/leave-balance';
 
 import { EMPLOYEE_MENU } from "@/lib/navigation";
 
@@ -105,6 +107,25 @@ export default function LeavePage() {
     setDurationDays(days);
   }, [selectedType, startDate, endDate, holidaySet]);
 
+  // Sisa jatah mengikuti TAHUN TANGGAL MULAI (sama dengan validasi server) dan diambil segar setiap form dibuka
+  const currentYear = new Date().getUTCFullYear();
+  const startYear = Number(startDate.slice(0, 4));
+  const balanceYear = Number.isInteger(startYear) && startYear >= 2020 ? startYear : currentYear;
+  const [liveBalances, setLiveBalances] = useState<{ year: number; list: LeaveBalance[] } | null>(null);
+  useEffect(() => {
+    if (!isModalOpen) return;
+    let cancelled = false;
+    getMyLeaveBalances(balanceYear)
+      .then((list) => { if (!cancelled) setLiveBalances({ year: balanceYear, list }); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isModalOpen, balanceYear]);
+  const activeBalances: LeaveBalance[] | undefined = liveBalances?.year === balanceYear ? liveBalances.list : balanceYear === currentYear ? employeeInfo?.balances : undefined;
+  const typeBalance = activeBalances?.find((b) => b.type === selectedType);
+  const quotaLeft = typeBalance?.remaining ?? null; // null = tidak dibatasi
+  const overQuota = quotaLeft !== null && durationDays > quotaLeft;
+  const latestEnd = overQuota && startDate ? lastDateWithinQuota(startDate, quotaLeft, holidaySet) : null;
+
   // Handle new submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,9 +154,8 @@ export default function LeavePage() {
     }
 
     // Validasi Kuota (server tetap memvalidasi ulang)
-    const bal = employeeInfo?.balances?.find((b: any) => b.type === selectedType);
-    if (bal && bal.remaining !== null && durationDays > bal.remaining) {
-      setFormError(`Kuota ${selectedType} Anda tidak mencukupi (Tersisa ${Math.max(bal.remaining, 0)} Hari).`);
+    if (overQuota && quotaLeft !== null) {
+      setFormError(`Kuota ${selectedType} Anda tidak mencukupi: diajukan ${durationDays} hari kerja, tersisa ${Math.max(quotaLeft, 0)} hari.`);
       return;
     }
 
@@ -489,13 +509,6 @@ export default function LeavePage() {
 
             {/* Modal Body / Form */}
             <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1 bg-[var(--bg)]">
-              {formError && (
-                <div className="p-3.5 bg-red-50 border border-red-100 rounded-2xl flex gap-2.5 items-start text-[12px] text-red-800 animate-in shake duration-300">
-                  <AlertCircle className="shrink-0 text-[var(--red)]" size={16} />
-                  <span className="font-semibold leading-relaxed">{formError}</span>
-                </div>
-              )}
-
               {/* Tipe Cuti */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-ink-2 uppercase tracking-wider">Tipe Pengajuan</label>
@@ -514,7 +527,7 @@ export default function LeavePage() {
                     <option key={type.key} value={type.key}>
                       {type.label}
                       {(() => {
-                        const b = employeeInfo?.balances?.find((x: any) => x.type === type.key);
+                        const b = (activeBalances ?? employeeInfo?.balances)?.find((x: any) => x.type === type.key);
                         return b && b.remaining !== null ? ` — sisa ${Math.max(b.remaining, 0)} hari` : '';
                       })()}
                     </option>
@@ -562,6 +575,22 @@ export default function LeavePage() {
                 <span className="text-[11px] font-bold text-ink-3 uppercase tracking-wider">Total Hari Terhitung:</span>
                 <span className="text-[16px] font-black text-ink">{durationDays} Hari Kerja</span>
               </div>
+              {quotaLeft !== null && !overQuota && (
+                <p className="text-[11px] text-ink-3 font-medium -mt-3 px-1" data-testid="quota-info">
+                  Sisa jatah {selectedType}{balanceYear !== currentYear ? ` tahun ${balanceYear}` : ''}: {Math.max(quotaLeft, 0)} hari
+                </p>
+              )}
+              {overQuota && quotaLeft !== null && (
+                <div role="alert" data-testid="quota-warning" className="p-3 bg-red-50 border border-red-200 rounded-2xl flex gap-2.5 items-start text-[12px] text-red-800 -mt-2">
+                  <AlertCircle className="shrink-0 text-[var(--red)] mt-0.5" size={16} />
+                  <span className="font-semibold leading-relaxed">
+                    Melebihi kuota: diajukan {durationDays} hari kerja, sisa jatah {selectedType}{balanceYear !== currentYear ? ` tahun ${balanceYear}` : ''} hanya {Math.max(quotaLeft, 0)} hari.
+                    {latestEnd
+                      ? ` Tanggal selesai paling lambat ${new Date(latestEnd + 'T00:00:00Z').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}.`
+                      : ' Jatah sudah habis, pengajuan tidak dapat dikirim.'}
+                  </span>
+                </div>
+              )}
               {(() => {
                 const inRange = holidaysInRange(startDate, endDate, holidayMap);
                 if (inRange.length === 0) return null;
@@ -641,7 +670,15 @@ export default function LeavePage() {
               </div>
 
               {/* Submit Buttons */}
-              <div className="pt-4 border-t border-line flex gap-3 shrink-0">
+              {/* Bilah bawah menempel di dasar formulir: pesan error selalu terlihat di dekat tombol */}
+              <div className="sticky bottom-0 -mx-6 -mb-6 px-6 pb-6 pt-4 bg-[var(--bg)] border-t border-line shrink-0 flex flex-col gap-3">
+              {formError && (
+                <div role="alert" data-testid="form-error" className="p-3.5 bg-red-50 border border-red-100 rounded-2xl flex gap-2.5 items-start text-[12px] text-red-800 animate-in shake duration-300">
+                  <AlertCircle className="shrink-0 text-[var(--red)]" size={16} />
+                  <span className="font-semibold leading-relaxed">{formError}</span>
+                </div>
+              )}
+              <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -651,8 +688,9 @@ export default function LeavePage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="flex-1 h-13 rounded-full font-bold text-[14px] text-white bg-[var(--red)] hover:bg-red-700 active:scale-95 transition-all shadow-lg hover:shadow-red-500/10 flex items-center justify-center gap-2"
+                  disabled={submitting || overQuota}
+                  title={overQuota ? 'Melebihi sisa kuota' : undefined}
+                  className="flex-1 h-13 rounded-full font-bold text-[14px] text-white bg-[var(--red)] hover:bg-red-700 active:scale-95 transition-all shadow-lg hover:shadow-red-500/10 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
                 >
                   {submitting ? (
                     <>
@@ -663,6 +701,7 @@ export default function LeavePage() {
                     <>Kirim Pengajuan</>
                   )}
                 </button>
+              </div>
               </div>
             </form>
           </div>
