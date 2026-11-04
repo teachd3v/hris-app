@@ -9,7 +9,7 @@ import * as schema from "@/lib/db/schema";
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-  const { user, profile } = await requireAdmin();
+  const { user, profile, isSuperAdmin } = await requireAdmin();
   const db = getDb();
   const [[pending], [stalled], [total]] = await Promise.all([
     db.select({ n: count() }).from(schema.leave_requests).where(eq(schema.leave_requests.status, "PENDING_HC_ADMIN")),
@@ -19,7 +19,9 @@ export default async function Page() {
 
   const items = [
     { href: "/admin/m/cuti", icon: "📅", title: "Persetujuan Cuti (HC)", desc: stalled.n > 0 ? `Setujui atau tolak pengajuan · ${stalled.n} tertahan di atasan` : "Setujui atau tolak pengajuan", badge: pending.n > 0 ? `${pending.n} menunggu` : null },
-    { href: "/admin/m/karyawan", icon: "👥", title: "Karyawan", desc: `Lihat data & reset password (${total.n} karyawan)`, badge: null },
+    { href: "/admin/m/karyawan", icon: "👥", title: "Karyawan", desc: isSuperAdmin ? `Lihat dan ubah data, reset password (${total.n} karyawan)` : `Lihat data & reset password (${total.n} karyawan)`, badge: null },
+    // Pengaturan cuti dari HP: khusus super admin (admin lain memakai desktop)
+    ...(isSuperAdmin ? [{ href: "/admin/m/kuota", icon: "🗓️", title: "Kuota Cuti", desc: "Atur jatah cuti per karyawan", badge: null }] : []),
   ];
 
   return (
@@ -38,7 +40,7 @@ export default async function Page() {
         ))}
       </div>
       <p className="text-[11px] text-ink-3 px-1 leading-relaxed">
-        Pengaturan lain (tambah/hapus karyawan, atasan, kuota cuti, hari libur, asesmen, log audit) dan data lengkap karyawan tersedia di <strong>desktop</strong>.
+        Pengaturan lain (tambah/hapus karyawan, atasan, {isSuperAdmin ? "" : "kuota cuti, "}hari libur, asesmen, log audit) dan data lengkap karyawan tersedia di <strong>desktop</strong>.
       </p>
     </MobileAdminShell>
   );
