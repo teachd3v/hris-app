@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Bell, Loader2 } from 'lucide-react';
 import MobileHeroShell from '@/components/common/MobileHeroShell';
 import { NOTIFICATIONS_CHANGED } from '@/components/common/NotificationBell';
+import PushToggle from '@/components/common/PushToggle';
 import { EMPLOYEE_MENU } from '@/lib/navigation';
 import { getEmployeeBasicProfile } from '@/app/employee/documents/actions';
 import { getMyNotifications, markAllNotificationsRead, markNotificationRead, type NotificationItem } from './actions';
@@ -65,6 +66,7 @@ export default function NotificationsPage() {
       userName={profile?.name || 'Memuat...'}
       userPhoto={profile?.photo_url ?? undefined}
     >
+      <PushToggle variant="row" />
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       {!items && !error ? (
         <div className="py-16 flex justify-center"><Loader2 className="animate-spin text-ink-3" /></div>

@@ -88,7 +88,7 @@ Migrasi ada di `drizzle/` dan dijalankan **manual** dengan `wrangler d1 execute 
 npx wrangler d1 execute hris-teachapp-db --remote --file=drizzle/<berkas>.sql
 ```
 
-Urutan untuk database baru: `0000` → `0011`. Berkas `custom_migration_institutional_email.sql` adalah sisa lama (sudah tercakup `0002`), **jangan** dijalankan di database baru. `drizzle/manual/` berisi SQL pendukung:
+Urutan untuk database baru: `0000` → `0012`. Berkas `custom_migration_institutional_email.sql` adalah sisa lama (sudah tercakup `0002`), **jangan** dijalankan di database baru. `drizzle/manual/` berisi SQL pendukung:
 
 - `check_duplicates.sql` — jalankan sebelum menambah indeks unik (`0005`, `0006`).
 - `create_leave_requests.sql` — membuat `leave_requests` bila belum ada (database lama).
@@ -105,6 +105,26 @@ Secret produksi (`npx wrangler secret put <NAMA>`): `AUTH_SECRET`, `AUTH_TRUST_H
 
 Setelah deploy: pastikan akses publik (`r2.dev`) bucket `hris-teachapp-storage` **nonaktif**.
 
+### Notifikasi HP (Web Push)
+
+Notifikasi cuti juga dikirim sebagai push ke HP yang sudah mengaktifkannya (muncul walau aplikasi tertutup). Tanpa kunci VAPID, push dilewati dan aplikasi tetap berjalan normal (hanya lonceng di dalam aplikasi).
+
+1. Jalankan migrasi `0012_push_subscriptions.sql` ke D1 produksi (lihat bagian Migrasi database).
+2. Buat kunci di komputer Anda (jangan tempel kunci privat ke chat atau repo):
+   ```bash
+   node scripts/generate-vapid-keys.mjs
+   ```
+3. Simpan sebagai secret Worker:
+   ```bash
+   npx wrangler secret put VAPID_PUBLIC_KEY
+   npx wrangler secret put VAPID_PRIVATE_KEY
+   ```
+   Opsional `VAPID_SUBJECT` (mis. `mailto:admin@domain.org`; bawaan `https://hrteach.site`). Mengganti pasangan kunci membuat semua langganan lama tidak berlaku.
+4. Setiap karyawan mengaktifkannya sendiri di perangkatnya: kartu "Aktifkan notifikasi" di beranda HP, atau di halaman Notifikasi (ada tombol "Kirim notifikasi uji"). Izin tidak bisa diminta otomatis saat memasang aplikasi; harus lewat ketukan pengguna.
+5. iPhone hanya menerima push bila aplikasi dipasang ke Layar Utama lewat Safari (iOS 16.4+).
+
+Kode: `lib/web-push.ts` (enkripsi RFC 8291 + VAPID RFC 8292 dengan WebCrypto), `lib/push.ts` (pengiriman, dipanggil setelah aksi berhasil lewat `waitUntil`), `public/sw.js` (penerima push). Endpoint langganan dibatasi ke layanan push resmi browser.
+
 ## Struktur
 
 ```
@@ -117,6 +137,7 @@ lib/auth-guard.ts    penjaga halaman/aksi server
 lib/leave*.ts        aturan cuti & perhitungan jatah
 lib/audit.ts         pencatatan log audit (atomik dengan aksinya)
 lib/notifications.ts  notifikasi di dalam aplikasi (lonceng): penerima per kejadian cuti, atomik dengan aksinya
+lib/push.ts, lib/web-push.ts  notifikasi push ke HP (lihat bagian Notifikasi HP)
 lib/upload.ts        validasi unggahan (ukuran, magic bytes)
 lib/db/schema.ts     skema Drizzle (sumber migrasi)
 drizzle/             migrasi SQL

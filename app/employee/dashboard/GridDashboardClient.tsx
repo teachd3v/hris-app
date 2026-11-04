@@ -6,6 +6,7 @@ import Link from "next/link";
 import DashboardLayout from "@/components/common/DashboardLayout";
 import { EMPLOYEE_MENU } from "@/lib/navigation";
 import NotificationBell from "@/components/common/NotificationBell";
+import PushToggle from "@/components/common/PushToggle";
 
 const APPS = [
   { icon: "🕘", label: "Riwayat", desc: "Presensi", href: "/employee/attendance/history", color: "bg-sky-50 text-sky-600" },
@@ -213,6 +214,9 @@ export default function GridDashboardClient({
               <span className="text-xl">›</span>
             </Link>
           )}
+
+          {/* Ajakan mengaktifkan notifikasi HP (hanya HP; tersembunyi bila sudah aktif/ditolak/ditunda) */}
+          <div className="md:hidden empty:hidden"><PushToggle variant="card" /></div>
 
           {/* Grid Menu Container (Mobile Quick Access) */}
           <div className="md:hidden bg-white rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-5 border border-[var(--line)]">

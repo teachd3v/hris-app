@@ -11,6 +11,7 @@ import { isTopLeader } from '@/lib/org'
 import { loadHolidayDates } from '@/lib/holidays'
 import { auditStmt } from '@/lib/audit'
 import { adminRecipientIds, leaveBrief, notifyStmts, planHcDecision, planManagerDecision, planOverride, planSubmitted, resolveStmt } from '@/lib/notifications'
+import { pushInBackground } from '@/lib/push'
 import { LEAVE_TYPES, LEAVE_TYPE_KEYS, HC_OVERRIDE_PREFIX, calculateLeaveDuration, validateLeaveDates, parseIsoDate, type LeaveCategory } from '@/lib/leave'
 import { eq, and, desc, asc, inArray, or, lte, gte, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
@@ -234,6 +235,7 @@ export async function createLeaveRequest(formData: FormData): Promise<ActionResu
       created_at: now,
       updated_at: now,
     }), ...notifyStmts(db, notifications)] as any)
+    pushInBackground(db, notifications)
   } catch (e) {
     if (attachment) await deleteFromStorage(attachment.key).catch(() => {})
     throw e
@@ -320,6 +322,11 @@ export async function approveByManager(id: string, isApproved: boolean, notes: s
   if (!sub || sub.manager_id !== manager.id) return { error: 'Anda tidak memiliki wewenang untuk menyetujui pengajuan ini' }
 
   const [requester] = await db.select({ name: schema.employees.name }).from(schema.employees).where(eq(schema.employees.id, request.employee_id ?? '')).limit(1)
+  const notifications = planManagerDecision({
+      requestId: id, requesterId: request.employee_id ?? '', requesterName: requester?.name ?? 'Karyawan',
+      brief: leaveBrief(request.leave_type ?? '', request.start_date ?? '', request.end_date ?? '', request.total_days),
+      actorId: manager.id, approved: isApproved, adminIds: await adminRecipientIds(db),
+    })
   await db.batch([
     db.update(schema.leave_requests).set({
       status: isApproved ? 'PENDING_HC_ADMIN' : 'REJECTED',
@@ -333,12 +340,9 @@ export async function approveByManager(id: string, isApproved: boolean, notes: s
       details: { decision: isApproved ? 'setuju' : 'tolak', leave_type: request.leave_type, start: request.start_date, end: request.end_date, days: request.total_days, notes: cleanNotes || undefined },
     })),
     resolveStmt(db, id, { exceptEmployeeId: request.employee_id ?? undefined }),
-    ...notifyStmts(db, planManagerDecision({
-      requestId: id, requesterId: request.employee_id ?? '', requesterName: requester?.name ?? 'Karyawan',
-      brief: leaveBrief(request.leave_type ?? '', request.start_date ?? '', request.end_date ?? '', request.total_days),
-      actorId: manager.id, approved: isApproved, adminIds: await adminRecipientIds(db),
-    })),
+    ...notifyStmts(db, notifications),
   ] as any)
+  pushInBackground(db, notifications)
 
   revalidatePath('/employee/cuti')
   return {}
@@ -415,6 +419,11 @@ export async function approveByHC(id: string, isApproved: boolean, notes: string
   }
 
   const [requesterHc] = await db.select({ name: schema.employees.name }).from(schema.employees).where(eq(schema.employees.id, request.employee_id ?? '')).limit(1)
+  const notifications = planHcDecision({
+      requestId: id, requesterId: request.employee_id ?? '', requesterName: requesterHc?.name ?? 'Karyawan',
+      brief: leaveBrief(request.leave_type ?? '', request.start_date ?? '', request.end_date ?? '', request.total_days),
+      approved: isApproved,
+    })
   await db.batch([
     db.update(schema.leave_requests).set({
       status: isApproved ? 'APPROVED' : 'REJECTED',
@@ -428,12 +437,9 @@ export async function approveByHC(id: string, isApproved: boolean, notes: string
       details: { decision: isApproved ? 'setuju' : 'tolak', leave_type: request.leave_type, start: request.start_date, end: request.end_date, days: request.total_days, notes: cleanNotes || undefined },
     })),
     resolveStmt(db, id, { exceptEmployeeId: request.employee_id ?? undefined }),
-    ...notifyStmts(db, planHcDecision({
-      requestId: id, requesterId: request.employee_id ?? '', requesterName: requesterHc?.name ?? 'Karyawan',
-      brief: leaveBrief(request.leave_type ?? '', request.start_date ?? '', request.end_date ?? '', request.total_days),
-      approved: isApproved,
-    })),
+    ...notifyStmts(db, notifications),
   ] as any)
+  pushInBackground(db, notifications)
 
   revalidatePath('/employee/cuti')
   revalidatePath('/admin/leave-requests')
@@ -461,6 +467,11 @@ export async function overrideByHC(id: string, isApproved: boolean, reason: stri
 
   const [requester] = await db.select({ name: schema.employees.name, manager_id: schema.employees.manager_id }).from(schema.employees).where(eq(schema.employees.id, request.employee_id ?? '')).limit(1)
   const now = new Date().toISOString()
+  const notifications = planOverride({
+      requestId: id, requesterId: request.employee_id ?? '', requesterName: requester?.name ?? 'Karyawan',
+      brief: leaveBrief(request.leave_type ?? '', request.start_date ?? '', request.end_date ?? '', request.total_days),
+      actorId: admin.emp.id, approved: isApproved, managerId: requester?.manager_id ?? null,
+    })
   await db.batch([
     db.update(schema.leave_requests).set({
       status: isApproved ? 'APPROVED' : 'REJECTED',
@@ -474,12 +485,9 @@ export async function overrideByHC(id: string, isApproved: boolean, reason: stri
       details: { decision: isApproved ? 'setuju' : 'tolak', leave_type: request.leave_type, start: request.start_date, end: request.end_date, days: request.total_days, manager_id: requester?.manager_id ?? undefined, reason: cleanReason },
     })),
     resolveStmt(db, id, { exceptEmployeeId: request.employee_id ?? undefined }),
-    ...notifyStmts(db, planOverride({
-      requestId: id, requesterId: request.employee_id ?? '', requesterName: requester?.name ?? 'Karyawan',
-      brief: leaveBrief(request.leave_type ?? '', request.start_date ?? '', request.end_date ?? '', request.total_days),
-      actorId: admin.emp.id, approved: isApproved, managerId: requester?.manager_id ?? null,
-    })),
+    ...notifyStmts(db, notifications),
   ] as any)
+  pushInBackground(db, notifications)
 
   revalidatePath('/employee/cuti')
   revalidatePath('/admin/leave-requests')
